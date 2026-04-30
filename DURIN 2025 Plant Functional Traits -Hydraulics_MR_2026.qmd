@@ -754,7 +754,7 @@ data <- data %>%
   ))
 ```
 
-#NEED TO CHANGE CODE FOR THIS PLOT, CURRENTLY JUST MESSING UP COLUMNS
+#NEED TO CHANGE CODE FOR THIS PLOT, does not work
 
 ```{r}
 #| label: Check leaf thickness done by SG vs ES
@@ -801,5 +801,5 @@ data_long_thickness %>% ggplot(aes(
 #Check mean dry mass for AGV1765, the value is almost 10x the other leaves of the plant
 # AMP6104 has 10x lower dry mass, comment says "6dp at dry mass", so might be an accidental extra 0 behind the comma
 
-#Calculate outliers by IQR?
+
 ```
