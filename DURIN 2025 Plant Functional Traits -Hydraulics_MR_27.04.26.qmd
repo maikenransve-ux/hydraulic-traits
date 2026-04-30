@@ -234,6 +234,56 @@ data <- raw_data %>%
   # Left join, keep values from x, and only matching rows in y (leaf_area_clean)
   dplyr::left_join(leaf_area_clean, by = "envelope_ID")
 
+#To check for duplicate rows in data
+
+any(duplicated(data$envelope_ID))
+
+data$envelope_ID[duplicated(data$envelope_ID)]
+
+#To check for duplicate rows in leaf_area_clean
+
+any(duplicated(leaf_area_clean$envelope_ID))
+
+leaf_area_clean$envelope_ID[duplicated(leaf_area_clean$envelope_ID)]
+
+#To check for duplicate rows in leaf_area_raw -no duplicates here!
+
+any(duplicated(leaf_area_raw$envelope_ID))
+
+#To check for duplicate rows in raw_data -no duplicates here!
+
+any(duplicated(raw_data$envelope_ID))
+
+#remove duplicates AFB1674 and AFZ7040 as they are identical
+
+
+data <- data %>% distinct(envelope_ID, .keep_all = TRUE)
+
+#Check that the duplicates are removed
+
+data$envelope_ID[duplicated(data$envelope_ID)]
+
+```
+
+```{r}
+#| label: create height vegetative column
+
+
+#import metadata
+metadata <- read_excel("/Users/maikenransve/Documents/Internship_DURIN/statistical analysis/data/raw_data/DURIN-Hydraulics-Calluna-Sampling-December-2025.xlsx") |>
+mutate(age_class = case_when(
+age_class == "Pioneer" ~ "Pioneer",
+age_class == "Building_Mature" ~ "Building",
+age_class == "Mature_Degenerative" ~ "Mature"
+))
+
+#create a new column with unique id's to match with the functional traits dataset
+metadata <- metadata |>
+mutate(unique_plantID = paste(age_class,"_",NiN,"_",plant_nr, sep = ""))
+
+#creates a new column with plant height using the height from the metadata dataset
+data$height_cm <- metadata$height_cm[match(data$unique_plantID, metadata$unique_plantID)]
+
 ```
 
 **NOTE: THE SCRIPT WORKS TIL HERE FOR SONYA. YOU NEED TO EDIT THE BELOW SECTIONS NOW!**
@@ -254,18 +304,56 @@ data_remarks <- data %>%
 
 # Remember, sometimes multiple comment strings in the column, and can be seperated by ";" (EXAMPLE ONLY AT THE MOMENT!)
 # cleaning up remarks to match envelopes + standardizing 
+# standardizing incorrect texts
+    # e.g. if remark column says "only 2 leafs at dry mass" change to "only 2 leaves at dry mass".
+
+
 
 data <- data %>%  
+   mutate(remark = tolower(remark))%>% #evrything is in small letter to remove all capital letter mistakes
+
   mutate(
-    # standardizing incorrect texts
-    # e.g. if remark column says "only 2 leafs at dry mass" change to "only 2 leaves at dry mass".
     remark = case_when(
-      remark == "only 2 leafs at dry mass" ~ "; only 2 leaves at dry mass"
-      TRUE ~ remark # this means if the remark doesn't have any other issues flagged above, it just returns the original remark in the cell
-    ))
+      remark == "Plant has not very many good leaves to choose from ; Leaf thickness by ES" ~ ";Plant has not very many good leaves to choose from; Leaf thickness by ES",
+      
+      remark == "longer shoots mostly only available" ~ "longer shoots only available",
+      
+      remark == "4 leaves at scan and thickness" ~ "4 leaves at scanning",
+      
+      remark == "only 4 leaves on the scanning stage" ~ "4 leaves at scanning",
+      
+      remark == "only 4 leaves at scanning" ~ "4 leaves at scanning",
+      
+      remark == "leaf went missing at wet mass -now 4" ~ "4 leaves at scanning",
+      
+      remark == "only 4 leaves at scanning and weighing" ~ "4 leaves at scanning",
+      
+      remark == ";plant has not very many good leaves to choose from; leaf thickness by es" ~ "plant has not very many good leaves to choose from; leaf thickness by es",
+      
+      remark == "only 4 leaves at data entry" ~ "4 leaves at data entry",
+      
+      remark == "leaves are sampled from old short shoots" ~ "leaves sampled from new on old short shoot",
+      
+       remark == "leaves are sampled from new on old short shoot" ~ "leaves sampled from new on old short shoot",
+      
+        remark == "only 4 leaves at dry weight; only 4 leaves at data entry" ~ "4 leaves at dry weight; 4 leaves at data entry",
+      
+       remark == "only 4 leaves at scanning; only 4 leaves at data entry" ~ "4 leaves at scanning; 4 leaves at data entry",
+      
+      remark == "small leaves; only 4 leaves at scanning and weighing; only 4 leaves at data entry" ~ "small leaves; 4 leaves at scanning; 4 leaves at data entry",
+      
+         remark == "5 leaves at data entry" ~ "4 leaves at data cleaning",
+      
+      TRUE ~ remark,
+      ))
+      
+      # this means if the remark doesn't have any other issues flagged above, it just returns the original remark in the cell
+
 
 # Check comments after the fixes above
 unique(data$remark) 
+
+#32 comments ok?
 ```
 
 # Calculate per leaf trait values
@@ -290,15 +378,18 @@ We then also want to know the remarks for each given trait ideally, so we make s
 # Default column is the initial bulk_nr, initial values for following trait derived from prior trait + edits via comments
 data$bulk_nr_wet_mass <- data$bulk_nr_leaves # Create a new column 'bulk_nr_wet_mass' that's derived from the overall 'bulk_nr' column
 
+#So far, no comments about wet mass stage
 
 # Modify based on the wet mass comments
-data <- data %>%
-  mutate(bulk_nr_wet_mass = case_when(
-        #TODO: THESE ARE EXAMPLES
-    grepl("3 leaves at wet mass", remark) ~ 3, #TODO: Update to match EIRIK's sampling strategy and the comments from above
+#data <- data %>%
+#  mutate(bulk_nr_wet_mass = case_when(
+    
+#        #TODO: THESE ARE EXAMPLES
+    
+#   grepl("3 leaves at wet mass", remark) ~ 3, #TODO: Update to match EIRIK's sampling strategy and the comments from above
     # Add more statements like above if there are more relevant comments
-    .default = bulk_nr_wet_mass    # Keep original bulk nr value if no comment is applied to row
-  ))
+#    .default = bulk_nr_wet_mass    # Keep original bulk nr value if no comment is applied to row
+#  ))
 
 
 
@@ -311,8 +402,9 @@ data <- data %>%
   mutate(bulk_nr_leaf_area = case_when(
     # Must be cross-checked against images!! DO NOT UNIVERSALLY APPLY
         #TODO: THESE ARE EXAMPLES
-    grepl("5 leaves at scanning", remark) ~ 5, # if "statement" in the remark column, then change to value outside brackets in bulk_nr_leaf_area
-    grepl("3 leaves at scanning", remark) ~ 3,
+    grepl("4 leaves at scanning", remark) ~ 4, # if "statement" in the remark column, then change to value outside brackets in bulk_nr_leaf_area
+    grepl("4 leaves at scanning; 4 leaves at data entry", remark) ~ 4,
+    grepl("small leaves; 4 leaves at scanning; 4 leaves at data entry", remark) ~ 4,
     .default = bulk_nr_leaf_area    # Keep original bulk nr value if no comment is applied to row, and is confirmed by images.
   ))
 
@@ -357,6 +449,10 @@ bulk_nr_issues_thickness <-  data %>%
 
 # Are there any issues? If so, list here in commented statements with EnvelopeID's
 
+# Envelope ALL9208 only have 2 thickness measurements, but didn't appear when checking thickness issues in code, is the code adding up the 3 columns of leaf_thickness 1,2 and 3?
+
+#No thickness comments
+
 # Modify based on the thickness comments
 data <- data %>%
   mutate(bulk_nr_thickness = case_when(
@@ -374,8 +470,7 @@ data$bulk_nr_dry_mass <- data$bulk_nr_thickness
 data <- data %>%
   mutate(bulk_nr_dry_mass = case_when(
         #TODO: THESE ARE EXAMPLES
-    grepl("3 leaves at dry mass", remark) ~ 3,
-    grepl("5 leaves at dry mass", remark) ~ 5,
+    grepl("4 leaves at dry weight; 4 leaves at data entry", remark) ~ 4,
     .default = bulk_nr_dry_mass    # Keep original bulk nr value if no comment is applied to row
   ))
 
@@ -402,10 +497,16 @@ data <- data %>%
 
 # Add in Plant Height
 
-THis is in the meta-data file Eirik has access to. Needs to be manually added per plant. Note, height will repeat for the multiple leaves measured per plant (i.e. across rows). Call the column 'height_vegetative'.
+THis is in the meta-data file Eirik has access to. Needs to be manually added per plant. Note, height will repeat for the multiple leaves measured per plant (i.e. across rows). Call the column 'height_vegetative'. #Added in the beginning
+
+```         
+```
 
 ```{r}
-#| label: create height vegetative column
+#| label: update base stem diameter
+
+#updating the stem diameter base column with the values from the metadata dataset
+raw_data$stem_diameter_base_mm <- metadata$diameter_base_mm[match(raw_data$unique_plantID, metadata$unique_plantID)]
 ```
 
 # Check trait outliers
@@ -417,7 +518,7 @@ This is just some ideas... has not yet been updated from the prior script templa
 
 # making a scatterplot for vegetative plant height per plant
 (data %>% 
-       ggplot(aes(x = factor(plant_nr), y = height_vegetative, colour = factor(plant_nr))) +
+       ggplot(aes(x = factor(plant_nr), y = height_cm, colour = factor(plant_nr))) +
   geom_point(size = 2, alpha = 0.8,
              position = position_jitter(width = 0.15)) +
   facet_grid(age_class ~ calluna_NIN_type) +
@@ -430,49 +531,7 @@ This is just some ideas... has not yet been updated from the prior script templa
   ))
 
 
-# making a scatterplot for flowering plant height per plant
-(data %>% 
-        ggplot(aes(x = factor(plant_nr), y = height_flower, colour = factor(plant_nr))) +
-  geom_point(size = 2, alpha = 0.8,
-             position = position_jitter(width = 0.15)) +
-  facet_grid(age_class ~ calluna_NIN_type) +
-  theme_bw() +
-  labs(
-    x = "Plant number",
-    y = "Plant Height - Flowering (cm)",
-    title = "Mean Flowering Plant Height (cm) by plant, age class and NiN type",
-        color = "Plant Number"
-  ))
 
-
-# Flowering vs vegetative plant height
-# Flowering height should probably be taller than vegetative height
-# So above the 1:1 line
-
-(data %>%  
-    ggplot(aes(x = height_vegetative, y = height_flower)) +
-  
-  # scatter points
-  geom_point(aes(colour = factor(plant_nr), shape = factor(age_class)),
-             size = 2, alpha = 0.7) +
-  
-  # 1:1 reference line
-  geom_abline(slope = 1, intercept = 0,
-              linetype = "dashed", colour = "grey50") +
-  
-  # fitted regression line
-  geom_smooth(method = "lm", se = TRUE, colour = "blue") +
-  
-  # optional: label
-  labs(
-    x = "Vegetative Height (cm)",
-    y = "Flowering Height (cm)",
-    title = "Flowering vs Vegetative Plant Height",
-    subtitle = "Dashed line = 1:1 reference, blue line = fitted linear trend",
-    colour = "plant_nr"
-  ) +
-  
-  theme_bw())
 ```
 
 ```{r}
@@ -683,3 +742,15 @@ data <- data %>%
 ```
 
 # Fix the Outliers
+
+```{r}
+#| label: check leaf area scans and outliers 
+
+#Check leaf area scans bulk nr for: ACI2672 (has 3 leaves written in data file, but i suspect it's supposed to be 4 or 5)
+#Check leaf thickness_2 for AKC8290, it is quite a high value compared to the other values of the bulk
+#Check leaf thickness_2 for AGR3236, quite high value
+#Check mean dry mass for AGV1765, the value is almost 10x the other leaves of the plant
+# AMP6104 has 10x lower dry mass, comment says "6dp at dry mass", so might be an accidental extra 0 behind the comma
+
+#Calculate outliers by IQR?
+```
