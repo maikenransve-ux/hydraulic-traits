@@ -140,8 +140,7 @@ raw_data <- raw_data %>%   # assuming you already created Month/date_day earlier
 
 # NEW Columns:
 # We need to match the DURIN data standards, which includes adding columns for location
-# TODO: Maiken, you need to update this for the GPS points where these were collected.Maybe chat with Eirik about this, as he'll know about the repeat sampling for some of hte NIN types between the trips with myself and Vigdis
-
+# TODO: Maiken, you need to update this for the GPS points where these were collected
 
 # Create new columns for coordinates 
 raw_data$latitude_N         <- as.numeric(NA)
@@ -174,6 +173,23 @@ raw_data$longitude_E <- ifelse(
   ifelse(raw_data$age_class == "Building", 5.093018,
   ifelse(raw_data$age_class == "Mature", 5.097197, NA)))
 )
+```
+
+## Add CollTime
+
+```{r}
+#| label: Add collection times
+
+
+
+
+
+
+
+
+
+
+
 ```
 
 ```{r}
@@ -267,8 +283,6 @@ data$envelope_ID[duplicated(data$envelope_ID)]
 
 # Add in Plant Height
 
-THis is in the meta-data file Eirik has access to. Needs to be manually added per plant. Note, height will repeat for the multiple leaves measured per plant (i.e. across rows). Call the column 'height_vegetative'. #Added in the beginning
-
 ```{r}
 #| label: create height vegetative column
 
@@ -289,8 +303,6 @@ mutate(unique_plantID = paste(age_class,"_",NiN,"_",plant_nr, sep = ""))
 data$height_cm <- metadata$height_cm[match(data$unique_plantID, metadata$unique_plantID)]
 
 ```
-
-**NOTE: THE SCRIPT WORKS TIL HERE FOR SONYA. YOU NEED TO EDIT THE BELOW SECTIONS NOW!**
 
 # Data Cleaning Entire Dataframe
 
@@ -754,8 +766,18 @@ data <- data %>%
   ))
 ```
 
+## Checking leaf thickness by measurer
+
 ```{r}
 #| label: Check leaf thickness done by SG vs ES
+
+# Check leaf thickness bias
+
+data_thickness_by <- data %>%
+  mutate(measurer = case_when(
+    str_detect(remark, "es") ~ "es",
+    TRUE ~ "SG"
+  ))
 
 
 # Make sure there are only one envelope ID in the data_long_thickness for the plots underneath
@@ -768,13 +790,7 @@ leaf_thickness_by_id <- data_long_thickness %>%
 data_thickness_by <- data_thickness_by %>%
   dplyr::left_join(leaf_thickness_by_id, by = "envelope_ID")
 
-# Check leaf thickness bias- plot with all thicknesses
-
-data_thickness_by <- data %>%
-  mutate(measurer = case_when(
-    str_detect(remark, "es") ~ "es",
-    TRUE ~ "SG"
-  ))
+#Plot with all thicknesses
 
  data_thickness_by %>% ggplot(aes(
      x = factor(plant_nr),
@@ -797,35 +813,35 @@ data_thickness_by <- data %>%
 # Check leaf thickness bias- plot with mean thickness for each sample
 
 
-#Add column leaf_thickness to data_thickness_by 
+#Add column leaf_thickness to data_thickness_by -only oif using mean thickness values, but this plot looked very messy so decided to leave it out
 
   
-data_thickness_by <- data_thickness_by %>%
-  dplyr::left_join(
-    data_long_thickness %>%
-      dplyr::mutate(envelope_ID = stringr::str_trim(as.character(envelope_ID))) %>%
-      dplyr::select(envelope_ID,leaf_thickness),
-    by = "envelope_ID"
-  )
+#data_thickness_by <- data_thickness_by %>%
+#  dplyr::left_join(
+#    data_long_thickness %>%
+#      dplyr::mutate(envelope_ID = stringr::str_trim(as.character(envelope_ID))) %>%
+#      dplyr::select(envelope_ID,leaf_thickness),
+#    by = "envelope_ID"
+#  )
+#
+#data_thickness_by %>% ggplot(aes(
+#     x = factor(plant_nr),
+#     y = leaf_thickness,
+#     colour = measurer
+#   )) +
+#   geom_point(
+#     size = 2,
+#     alpha = 0.8,
+#     position = position_jitter(width = 0.15)) +
+#   facet_grid(age_class ~ calluna_NIN_type) +
+#   theme_bw() +
+#   labs(
+#     x = "Plant number",
+#     y = "Leaf thickness (mm)",
+#     title = "Leaf thickness by measurer",
+#    colour = "Measured by"
+#   )
 
-# Check leaf thickness bias- plot with mean thickness for each sample
-data_thickness_by %>% ggplot(aes(
-    x = factor(plant_nr),
-    y = leaf_thickness,
-    colour = measurer
-  )) +
-  geom_point(
-    size = 2,
-    alpha = 0.8,
-    position = position_jitter(width = 0.15)) +
-  facet_grid(age_class ~ calluna_NIN_type) +
-  theme_bw() +
-  labs(
-    x = "Plant number",
-    y = "Leaf thickness (mm)",
-    title = "Leaf thickness by measurer",
-    colour = "Measured by"
-  )
 
 
 ```
@@ -835,16 +851,76 @@ data_thickness_by %>% ggplot(aes(
 ```{r}
 #| label: check leaf area scans and outliers 
 
+################### Not corrected ######################
+
 #Check leaf area scans bulk nr for: ACI2672 (has 3 leaves written in data file, but i suspect it's supposed to be 4 or 5)
+
+#Missing leaf area scans for: ADR7542, ACH0524,AIO5773
 
 #Check leaf thickness_2 for AKC8290, it is quite a high value compared to the other values of the bulk
 
 #Check leaf thickness_2 for AGR3236, quite high value
 
+##################### Corrected #######################
 #Check mean dry mass for AGV1765, the value is almost 10x the other leaves of the plant
-
 #AMP6104 has 10x lower dry mass, comment says "6dp at dry mass", so might be an accidental extra 0 behind the comma
 
-#Missing leaf area scans for: ADR7542, ACH0524,AIO5773
+
+```
+
+```{r}
+#| label: Correcting outliers
+
+#Mean dry_mass for AGV1765 is almost 10x higher than other values, decided it's a typo, decision is to change the value by adding in an extra 0. Column: dry_mass and 0.01146g
+
+data <- data %>%
+mutate(
+  
+# adjust to be which ever trait has the issue
+dry_mass = if_else(
+  
+# list the specific envelope ID with the issue and then the specific  column  value of interest that was specified above (here dry mass and 0.001130)
+envelope_ID == "AGV1765" & dry_mass == 0.01146,
+
+# write the replacement value
+0.001146,
+
+dry_mass))
+
+# Add remark
+
+# Use mutate() and str_c() to add comments to a string
+data <- data %>%
+  
+# in the 'remark' or the 'comment' column, list the envelopeID from above
+mutate(remark = ifelse(envelope_ID %in% c("AGV1765"),
+                       
+# Add to the existing 'remark' column, a comment but ensure it starts with '; ' first so it's not running in with the prior column, but adds to the end. Here hte comment is 'dry mass error updated'
+# "; dry mass error, updated"
+
+str_c(coalesce(remark, ""), "; dry mass error, updated"), remark)) 
+
+########################################################
+
+#AMP6104 has 10x lower dry mass, comment says "6dp at dry mass", so decision to remove extra 0 behind the comma, dry_mass and 0.00020g
+
+
+data <- data %>%
+mutate(
+  
+dry_mass = if_else(
+  
+envelope_ID == "AMP6104" & dry_mass == 0.00020,
+
+# write the replacement value
+0.00200,
+
+dry_mass))
+
+data <- data %>%
+  
+mutate(remark = ifelse(envelope_ID %in% c("AMP6104"),
+
+str_c(coalesce(remark, ""), "; dry mass error, updated"), remark)) 
 
 ```
