@@ -177,10 +177,14 @@ raw_data$longitude_E <- ifelse(
 
 ## Add CollTime
 
+Needs to be modified as wrong year and day is also added, when we just want the time!!
+
 ```{r}
 #| label: Add collection times
 
 
+#updating the collection time column by matching with the sampling dataset
+raw_data$collection_time <- metadata$time[match(raw_data$unique_plantID, metadata$unique_plantID)]
 
 
 
@@ -281,7 +285,9 @@ data$envelope_ID[duplicated(data$envelope_ID)]
 
 ```
 
-# Add in Plant Height
+# Add in Plant Height and CollTime
+
+CollTime needs to be modified as it does not work yet!!!
 
 ```{r}
 #| label: create height vegetative column
@@ -295,12 +301,28 @@ age_class == "Building_Mature" ~ "Building",
 age_class == "Mature_Degenerative" ~ "Mature"
 ))
 
+#Add CollTime
+
+library(lubridate)
+library(readxl)
+
+# Convert the column to datetime (if it isn't already)
+metadata$time <- as.POSIXct(metadata$time)
+
+metadata$formatted_time <- format(metadata$time, "%H:%M:%S")
+
+
+
+
+
 #create a new column with unique id's to match with the functional traits dataset
 metadata <- metadata |>
 mutate(unique_plantID = paste(age_class,"_",NiN,"_",plant_nr, sep = ""))
 
 #creates a new column with plant height using the height from the metadata dataset
 data$height_cm <- metadata$height_cm[match(data$unique_plantID, metadata$unique_plantID)]
+
+
 
 ```
 
@@ -508,14 +530,14 @@ data <- data %>%
     leaf_area = round(leaf_area, digits = 3),
     dry_mass = round(dry_mass, digits =  5)
   )
-
 ```
+
+# Calculate trait outliers?
 
 ```{r}
 
-```
 
-# Check trait outliers
+```
 
 ```{r}
 #| label: check plant height (vegetative) outliers
@@ -533,7 +555,6 @@ data <- data %>%
     title = "Mean Vegetative Plant Height (cm) by plant, age class and NiN type",
         color = "Plant Number"
   ))
-
 
 
 ```
