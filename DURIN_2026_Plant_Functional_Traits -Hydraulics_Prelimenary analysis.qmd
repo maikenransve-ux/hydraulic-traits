@@ -1,0 +1,38 @@
+---
+title: "DURIN_2026_Plant_Functional_Traits -Hydraulics_Prelimenary analysis"
+author: "Maiken Anabel Ransve"
+format: html
+editor: visual
+---
+
+# Importing data
+
+Have to see which packages are needed later and add them.
+
+```{r}
+#| label: load libraries
+
+# installing / loading packages 
+
+library(readxl) # Enables excel file import
+library(tidyverse) # Contains many helpful packages, i.e. dplyr etc.
+library(readr) # Data importation functions
+library(stringr) # String and character text
+library(dplyr)
+
+```
+
+```{r}
+#| label: importing raw data of traits
+#| message: false 
+
+# Read cleaned output file
+cleaned_data <- read_csv("/Users/maikenransve/Documents/Internship_DURIN/statistical analysis/data/clean_data/cleaned_data.csv")
+
+```
+
+# gg plots
+
+```{r}
+#| label: 
+```

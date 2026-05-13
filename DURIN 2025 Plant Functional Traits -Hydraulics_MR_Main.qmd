@@ -1,6 +1,6 @@
 ---
 title: "DURIN 2025 Plant Functional Traits -Hydraulics"
-author: "Sonya R Geange"
+author: "Sonya R Geange" and "Maiken anabel Ransve"
 format: html
 editor: visual
 ---
@@ -117,15 +117,10 @@ levels(raw_data$calluna_NiN_type)
 # Converting day, month, year column into one column on the format yyyy_mm_dd
 # removing the day and year columns, keep month for data cleaning checking for now      
 
-#TODO:
-#Should collection time be included, because in hydraulic traits there is only collection day?
-# SG-Collection time comes from the field notes, so yes, eventually this should be added in. But Eirik or yourself will have to do this from the field meta-data sheets, if it was not written on the envelopes. If it's on the envelopes, then it should have been entered into this spreadsheet in google drive.
-# At the moment it otherwise breaks this code, as there is no collection time for it to work with.
-
 raw_data <- raw_data %>% 
-  mutate(date  = ymd_hm(paste(year, month, day,
-                 format(collection_time, format = "%H:%M"))), .after = 1)  %>% 
-  select(-c(day, month, year, collection_time)) 
+  mutate(date  = ymd(paste(year, as.character(month), day)), .after = 1)  %>% 
+  select(-c(day, month, year)) 
+
 
 
 glimpse(raw_data) 
@@ -146,52 +141,38 @@ raw_data <- raw_data %>%   # assuming you already created Month/date_day earlier
 raw_data$latitude_N         <- as.numeric(NA)
 raw_data$longitude_E        <- as.numeric(NA)
 
+
 # Fill in coordinates
 
-# Pioneer sampled from BH: 60.701704, 5.094445
-# Pioneer sampled from FH: 60.701704, 5.094445
-# Pioneer sampled from TH: 60.701704, 5.094445
-# Building sampled from BH:  60.700705, 5.093018
-# Building sampled from FH:  60.700705, 5.093018
-# Building sampled from TH:  60.700705, 5.093018
-# Mature sampled from BH: 60.696599, 5.097197
-# Mature sampled from FH: 60.696599, 5.097197
-# Mature sampled from TH: 60.696599, 5.097197
+# Pioneer sampled from BH: 60.699655, 5.092279
+# Pioneer sampled from FH: 60.699426, 5.091988
+# Pioneer sampled from TH: 60.699467, 5.092246
+# Building sampled from BH: 60.699005, 5.101941
+# Building sampled from FH: 60.698828, 5.102044
+# Building sampled from TH: 60.698798, 5.101822
+# Mature sampled from BH: 60.697479, 5.096821
+# Mature sampled from FH: 60.697325, 5.096801
+# Mature sampled from TH: 60.697461, 5.096151
 
-# TODO: Update this below to have the multiple options from the NIN landscapes
-raw_data$latitude_N <- ifelse(
-  raw_data$age_class == "Pioneer" & raw_data$calluna_NIN_type == "BH", 60.696761, # an example of the multiple part statement you'll need to adjust below
-  ifelse(raw_data$age_class == "Pioneer", 60.701704,
-  ifelse(raw_data$age_class == "Building", 60.700705,
-  ifelse(raw_data$age_class == "Mature", 60.696599, NA)))
-)
+raw_data$latitude_N <- case_when(raw_data$age_class == "Pioneer" & raw_data$calluna_NIN_type == "BH" ~ 60.699655,
+raw_data$age_class == "Pioneer" & raw_data$calluna_NIN_type == "FH" ~ 60.699426,
+raw_data$age_class == "Pioneer" & raw_data$calluna_NIN_type == "TH" ~ 60.699467,
+raw_data$age_class == "Building" & raw_data$calluna_NIN_type == "BH" ~ 60.699005,
+raw_data$age_class == "Building" & raw_data$calluna_NIN_type == "FH" ~ 60.698828,
+raw_data$age_class == "Building" & raw_data$calluna_NIN_type == "TH" ~ 60.698798,
+raw_data$age_class == "Mature" & raw_data$calluna_NIN_type == "BH" ~ 60.697479,
+raw_data$age_class == "Mature" & raw_data$calluna_NIN_type == "FH" ~ 60.697325,
+raw_data$age_class == "Mature" & raw_data$calluna_NIN_type == "TH" ~ 60.697461)
 
-# Mature sampled from: 60.696599, 5.097197
-raw_data$longitude_E <- ifelse(
-  raw_data$age_class == "Pioneer" & raw_data$calluna_NIN_type == "BH", 5.096236,
-  ifelse(raw_data$age_class == "Pioneer", 5.094445,
-  ifelse(raw_data$age_class == "Building", 5.093018,
-  ifelse(raw_data$age_class == "Mature", 5.097197, NA)))
-)
-```
-
-## Add CollTime
-
-Needs to be modified as wrong year and day is also added, when we just want the time!!
-
-```{r}
-#| label: Add collection times
-
-
-#updating the collection time column by matching with the sampling dataset
-raw_data$collection_time <- metadata$time[match(raw_data$unique_plantID, metadata$unique_plantID)]
-
-
-
-
-
-
-
+raw_data$longitude_E <- case_when(raw_data$age_class == "Pioneer" & raw_data$calluna_NIN_type == "BH" ~ 5.092279,
+raw_data$age_class == "Pioneer" & raw_data$calluna_NIN_type == "FH" ~ 5.091988,
+raw_data$age_class == "Pioneer" & raw_data$calluna_NIN_type == "TH" ~ 5.092246,
+raw_data$age_class == "Building" & raw_data$calluna_NIN_type == "BH" ~ 5.101941,
+raw_data$age_class == "Building" & raw_data$calluna_NIN_type == "FH" ~ 5.102044,
+raw_data$age_class == "Building" & raw_data$calluna_NIN_type == "TH" ~ 5.101822,
+raw_data$age_class == "Mature" & raw_data$calluna_NIN_type == "BH" ~ 5.096821,
+raw_data$age_class == "Mature" & raw_data$calluna_NIN_type == "FH" ~ 5.096801,
+raw_data$age_class == "Mature" & raw_data$calluna_NIN_type == "TH" ~ 5.096151)
 
 
 ```
@@ -287,11 +268,13 @@ data$envelope_ID[duplicated(data$envelope_ID)]
 
 # Add in Plant Height and CollTime
 
-CollTime needs to be modified as it does not work yet!!!
-
 ```{r}
 #| label: create height vegetative column
 
+library(lubridate)
+library(readxl)
+library(dplyr)
+library(hms)
 
 #import metadata
 metadata <- read_excel("/Users/maikenransve/Documents/Internship_DURIN/statistical analysis/data/raw_data/DURIN-Hydraulics-Calluna-Sampling-December-2025.xlsx") |>
@@ -301,26 +284,22 @@ age_class == "Building_Mature" ~ "Building",
 age_class == "Mature_Degenerative" ~ "Mature"
 ))
 
-#Add CollTime
-
-library(lubridate)
-library(readxl)
-
-# Convert the column to datetime (if it isn't already)
-metadata$time <- as.POSIXct(metadata$time)
-
-metadata$formatted_time <- format(metadata$time, "%H:%M:%S")
-
-
-
-
-
 #create a new column with unique id's to match with the functional traits dataset
 metadata <- metadata |>
-mutate(unique_plantID = paste(age_class,"_",NiN,"_",plant_nr, sep = ""))
+mutate(unique_plantID = paste(age_class,"_",NiN,"_",plant_nr, sep = ""),
+       collection_time = as_hms(time)
+)
+
+
+
+#updating the colltime column by matching with the sampling dataset
+data$collection_time <- metadata$collection_time[match(data$unique_plantID, metadata$unique_plantID)]
+
 
 #creates a new column with plant height using the height from the metadata dataset
+
 data$height_cm <- metadata$height_cm[match(data$unique_plantID, metadata$unique_plantID)]
+
 
 
 
@@ -532,13 +511,6 @@ data <- data %>%
   )
 ```
 
-# Calculate trait outliers?
-
-```{r}
-
-
-```
-
 ```{r}
 #| label: check plant height (vegetative) outliers
 
@@ -723,6 +695,62 @@ ggplot(data_long_thickness, #plotting drom long format
 
 ```
 
+# Correcting outliers
+
+```{r}
+#|label: Correcting outliers
+
+#Mean dry_mass for AGV1765 is almost 10x higher than other values, decided it's a typo, decision is to change the value by adding in an extra 0. Column: dry_mass and 0.01146g
+
+data <- data %>%
+mutate(
+  
+# adjust to be which ever trait has the issue
+dry_mass = if_else(
+  
+# list the specific envelope ID with the issue and then the specific  column  value of interest that was specified above 
+envelope_ID == "AGV1765" & dry_mass == 0.01146,
+
+# write the replacement value
+0.001146,
+
+dry_mass))
+
+# Add remark
+
+# Use mutate() and str_c() to add comments to a string
+data <- data %>%
+  
+# in the 'remark' or the 'comment' column, list the envelopeID from above
+mutate(remark = ifelse(envelope_ID %in% c("AGV1765"),
+                       
+# Add to the existing 'remark' column, a comment but ensure it starts with '; ' first so it's not running in with the prior column, but adds to the end. Here hte comment is 'dry mass error updated'
+# "; dry mass error, updated"
+
+str_c(coalesce(remark, ""), "; dry mass error, updated"), remark)) 
+
+########################################################
+
+#AMP6104 has 10x lower dry mass, comment says "6dp at dry mass", so decision to remove extra 0 behind the comma, dry_mass and 0.00020g
+
+
+data <- data %>%
+mutate(
+  
+dry_mass = if_else(
+  
+envelope_ID == "AMP6104" & dry_mass == 0.00020,
+0.0020,
+
+dry_mass))
+
+data <- data %>%
+  
+mutate(remark = ifelse(envelope_ID %in% c("AMP6104"),
+
+str_c(coalesce(remark, ""), "; dry mass error, updated"), remark)) 
+```
+
 # Calculate SLA and LDMC
 
 ```{r}
@@ -886,62 +914,12 @@ data_thickness_by <- data_thickness_by %>%
 #Check mean dry mass for AGV1765, the value is almost 10x the other leaves of the plant
 #AMP6104 has 10x lower dry mass, comment says "6dp at dry mass", so might be an accidental extra 0 behind the comma
 
-
 ```
 
 ```{r}
-#| label: Correcting outliers
-
-#Mean dry_mass for AGV1765 is almost 10x higher than other values, decided it's a typo, decision is to change the value by adding in an extra 0. Column: dry_mass and 0.01146g
-
-data <- data %>%
-mutate(
-  
-# adjust to be which ever trait has the issue
-dry_mass = if_else(
-  
-# list the specific envelope ID with the issue and then the specific  column  value of interest that was specified above (here dry mass and 0.001130)
-envelope_ID == "AGV1765" & dry_mass == 0.01146,
-
-# write the replacement value
-0.001146,
-
-dry_mass))
-
-# Add remark
-
-# Use mutate() and str_c() to add comments to a string
-data <- data %>%
-  
-# in the 'remark' or the 'comment' column, list the envelopeID from above
-mutate(remark = ifelse(envelope_ID %in% c("AGV1765"),
-                       
-# Add to the existing 'remark' column, a comment but ensure it starts with '; ' first so it's not running in with the prior column, but adds to the end. Here hte comment is 'dry mass error updated'
-# "; dry mass error, updated"
-
-str_c(coalesce(remark, ""), "; dry mass error, updated"), remark)) 
-
-########################################################
-
-#AMP6104 has 10x lower dry mass, comment says "6dp at dry mass", so decision to remove extra 0 behind the comma, dry_mass and 0.00020g
+#| label: Saving cleaned output
 
 
-data <- data %>%
-mutate(
-  
-dry_mass = if_else(
-  
-envelope_ID == "AMP6104" & dry_mass == 0.00020,
-
-# write the replacement value
-0.00200,
-
-dry_mass))
-
-data <- data %>%
-  
-mutate(remark = ifelse(envelope_ID %in% c("AMP6104"),
-
-str_c(coalesce(remark, ""), "; dry mass error, updated"), remark)) 
+write.csv(data, "/Users/maikenransve/Documents/Internship_DURIN/statistical analysis/data/clean_data/cleaned_data.csv", row.names = FALSE)
 
 ```
