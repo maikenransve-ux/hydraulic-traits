@@ -20,6 +20,7 @@ library(readr) # Data importation functions
 library(stringr) # String and character text
 library(dplyr)
 library(ggplot2)
+library(rstatix)
 
 ```
 
@@ -36,19 +37,25 @@ cleaned_data <- as.data.frame(cleaned_data)
 cleaned_data$calluna_NIN_type <- factor(cleaned_data$calluna_NIN_type)
 cleaned_data$age_class <- factor(cleaned_data$age_class)
 
+
+
+
 ```
+
+Remember to exclude NA values to not confuse the code
 
 # Wet mass(g)
 
 ```{r}
 #| label: Wet mass statistics
 
-# Data frame with mean and se
+# Data frame with mean, median and se
 
 df_sum_wet_mass <- cleaned_data %>%
   group_by(calluna_NIN_type, age_class) %>%
-  summarise(mean_wet_mass = mean(wet_mass, na.rm=TRUE),
-            se_wet_mass = sd(wet_mass, na.rm=TRUE)/sqrt(n()),
+  summarise(mean_wet_mass = mean(wet_mass, na.rm=TRUE), 
+            median_wet_mass= median.default(wet_mass, na.rm=TRUE),
+            se_wet_mass = sd(wet_mass, na.rm=TRUE)/sqrt(n()), 
             n = n(), .groups = "drop")
 
 #Histograms
@@ -61,7 +68,7 @@ ggplot(cleaned_data, aes(x = wet_mass)) +
 
 
 
-#testing for normal distribution with Q-Q plot ---data appears normal
+#testing for normal distribution with Q-Q plot ---data might be normal, but has slight s shape
 
 qqnorm(cleaned_data$wet_mass)
 qqline(cleaned_data$wet_mass)
@@ -117,6 +124,28 @@ ggplot(df_sum_wet_mass, aes(x = age_class, y = mean_wet_mass, group = calluna_NI
 )
 
 
+#Density plot
+
+
+#Single Density Plot
+
+ggplot(cleaned_data, aes(x = wet_mass, y=Pioneer)) +
+  geom_density(fill = "skyblue", color = "midnightblue", alpha = 0.6) +
+  labs(title = "Density plot wet mass", x = "Wet mass", y = "Density") +
+  theme_minimal()
+
+
+
+
+
+
+#ANOVA, one ANOVA per trait - age class x NiN type, account for grouping effects, find appropriate transformation
+
+
+
+
+
+
 #Plotting fitted values
 
 #Need to find another model as data is probably not normally distributed!
@@ -128,9 +157,6 @@ newd_wet_mass$pred_wet_mass <- predict(lm_wet_mass, newd_wet_mass, se.fit = TRUE
 ggplot(newd_wet_mass, aes(x = age_class, y = pred_wet_mass, color = calluna_NIN_type, group = calluna_NIN_type)) +
    geom_line() + geom_point() + theme_minimal()
 
-#glm model
-
-glm_wet_mass <-glm(wet_mass ~ calluna_NIN_type * age_class, family = Gamma(link = "log"), data = cleaned_data)
 
 
 
@@ -348,6 +374,14 @@ ggplot(df_sum_height, aes(x = calluna_NIN_type, y = mean_height_cm, group = age_
 ```{r}
 #| label: Leaf thickness statistics
 
+#create table with leaf thickness 1,2,3 combined
+data_thickness <- cleaned_data %>% 
+  pivot_longer( # to get the separate columns reshaped
+    cols = c(leaf_thickness_1, leaf_thickness_2, leaf_thickness_3),
+    names_to = "replicate",
+    values_to = "leaf_thickness"
+  )
+
 # Data frame with mean and se
 
 df_sum_leaf_thickness <- data_thickness %>%
@@ -358,12 +392,7 @@ df_sum_leaf_thickness <- data_thickness %>%
 
 # Histogram
 
-data_thickness <- cleaned_data %>% 
-  pivot_longer( # to get the separate columns reshaped
-    cols = c(leaf_thickness_1, leaf_thickness_2, leaf_thickness_3),
-    names_to = "replicate",
-    values_to = "leaf_thickness"
-  )
+
 
 ggplot(data_thickness, aes(x = leaf_thickness)) +
   geom_histogram(bins = 30, color = "black", fill = "forestgreen") +
@@ -785,7 +814,7 @@ ggplot(newd_SLA, aes(x = age_class, y = pred_SLA, color = calluna_NIN_type, grou
 
 # Testing bootstrap modelling
 
-Does not work at the moment, have to figure out how to write this code
+Does not work at the moment, have to figure out how to write this code and if it is needed
 
 ```{r}
 #| label: bootstrap modelling
@@ -839,4 +868,71 @@ ggplot(boot_df, aes(x = group)) +
                  color = "black")
 ```
 
-# 
+# Testing for normality before ANOVA
+
+Attempting to make a qqplot with both age class and NiN + trait
+
+```{r}
+#| label: testing age class and NiN type for normality with shapiro-wilk
+
+#Find if data meets assumptions for a two-way ANOVA and if transformations are needed by using shapiro-wilk test and qq plot
+
+
+
+#Wet mass
+cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(wet_mass)
+
+#QQ plot, separate for age class and NiN type
+
+
+ggplot(cleaned_data, aes(sample = wet_mass)) +
+  stat_qq() +
+  stat_qq_line(col = "red") +
+  facet_wrap(~ age_class) +
+  theme_minimal()
+
+ggplot(cleaned_data, aes(sample = wet_mass)) +
+  stat_qq() +
+  stat_qq_line(col = "red") +
+  facet_wrap(~ calluna_NiN_type) +
+  theme_minimal()
+
+#Combined plot for age class*NiN type, for every combination type
+
+ggplot(cleaned_data, aes(sample = wet_mass)) +
+  stat_qq() +
+  stat_qq_line(col = "red") +
+  facet_grid(age_class ~ calluna_NiN_type) +
+  theme_minimal()
+
+
+#examine residuals---still need to understand why do this
+
+mod_wet_mass <- lm(wet_mass ~ age_class * calluna_NiN_type, data = cleaned_data)
+qqnorm(residuals(mod_wet_mass))
+qqline(residuals(mod_wet_mass), col = "red")
+
+
+
+
+
+
+
+#Dry mass
+cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(dry_mass)
+
+#Height
+cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(height_cm)
+
+#Leaf area
+cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(leaf_area)
+
+#Leaf thickness
+data_thickness %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(leaf_thickness)
+
+#SLA
+cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(SLA)
+
+#LDMC
+cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(LDMC)
+```
