@@ -21,6 +21,7 @@ library(stringr) # String and character text
 library(dplyr)
 library(ggplot2)
 library(rstatix)
+library(car)
 
 ```
 
@@ -37,17 +38,41 @@ cleaned_data <- as.data.frame(cleaned_data)
 cleaned_data$calluna_NIN_type <- factor(cleaned_data$calluna_NIN_type)
 cleaned_data$age_class <- factor(cleaned_data$age_class)
 
-
+#Make age class in order pioneer, building, mature
 
 
 ```
 
-Remember to exclude NA values to not confuse the code
+```{r}
+#| label: Data visualization and overview
 
-# Wet mass(g)
+summary(cleaned_data)
+str(cleaned_data)
+
+# Order relevant variables (useful for plotting and order based analyses)
+# age_class sorted from youngest to oldest
+
+cleaned_data$age_class <- factor((cleaned_data$age_class),
+                             levels = c("Pioneer", 
+                                        "Building", "Mature"))
+# Check if changed successfully
+levels(cleaned_data$age_class)
+
+
+# Order NIN types
+cleaned_data$calluna_NIN_type <- factor((cleaned_data$calluna_NiN_type),
+                                    levels = c("BH", "FH", "TH"))
+# Check if changed successfully
+levels(cleaned_data$calluna_NiN_type)
+
+```
+
+Remember to exclude NA values if they confuse the code
+
+# Wet mass(g) visualizations
 
 ```{r}
-#| label: Wet mass statistics
+#| label: Wet mass visualizations
 
 # Data frame with mean, median and se
 
@@ -67,25 +92,6 @@ ggplot(cleaned_data, aes(x = wet_mass)) +
   labs(x = "Wet mass (g)", y = "Number of Calluna individuals")
 
 
-
-#testing for normal distribution with Q-Q plot ---data might be normal, but has slight s shape
-
-qqnorm(cleaned_data$wet_mass)
-qqline(cleaned_data$wet_mass)
-
-#testing for normality with Shapiro-Wilk test ---gives a result of non-normal data
-
-shapiro.test(cleaned_data$wet_mass)
-
-#Checking residuals ---Also evidence against normality
-
-lm_wet_mass <- lm(wet_mass ~ calluna_NIN_type * age_class, data = cleaned_data)
-summary(lm_dry_mass)
-
-qqnorm(residuals(lm_wet_mass))
-qqline(residuals(lm_wet_mass))
-
-shapiro.test(residuals(lm_wet_mass))
 
 #Boxplot
 
@@ -124,12 +130,10 @@ ggplot(df_sum_wet_mass, aes(x = age_class, y = mean_wet_mass, group = calluna_NI
 )
 
 
-#Density plot
 
+#Single Density Plot --not working yet
 
-#Single Density Plot
-
-ggplot(cleaned_data, aes(x = wet_mass, y=Pioneer)) +
+ggplot(cleaned_data, aes(x = wet_mass, y=age_class~calluna_NiN_type) +
   geom_density(fill = "skyblue", color = "midnightblue", alpha = 0.6) +
   labs(title = "Density plot wet mass", x = "Wet mass", y = "Density") +
   theme_minimal()
@@ -138,35 +142,12 @@ ggplot(cleaned_data, aes(x = wet_mass, y=Pioneer)) +
 
 
 
-
-#ANOVA, one ANOVA per trait - age class x NiN type, account for grouping effects, find appropriate transformation
-
-
-
-
-
-
-#Plotting fitted values
-
-#Need to find another model as data is probably not normally distributed!
-
-newd_wet_mass <- expand.grid(calluna_NIN_type = levels(cleaned_data$calluna_NIN_type),
-                    age_class = levels(cleaned_data$age_class))
-newd_wet_mass$pred_wet_mass <- predict(lm_wet_mass, newd_wet_mass, se.fit = TRUE)$fit
-
-ggplot(newd_wet_mass, aes(x = age_class, y = pred_wet_mass, color = calluna_NIN_type, group = calluna_NIN_type)) +
-   geom_line() + geom_point() + theme_minimal()
-
-
-
-
-
 ```
 
-# Dry mass(g)
+# Dry mass(g) visualizations
 
 ```{r}
-#| label: Dry mass statistics
+#| label: Dry mass visualization
 
 # Data frame with mean and se
 
@@ -269,7 +250,7 @@ geom_point(size = 3.5)+ theme_minimal()
 # Height (cm)
 
 ```{r}
-#| label: Height statistics
+#| label: Height visualizations
 
 # Data frame with mean and se
 
@@ -287,26 +268,6 @@ ggplot(cleaned_data, aes(x = height_cm)) +
   theme_minimal() +
   labs(x = "Height (cm)", y = "Number of Calluna individuals")
 
-# testing for normal distribution with Q-Q plot
-
-qqnorm(cleaned_data$height_cm)
-qqline(cleaned_data$height_cm)
-
-# testing for normality with Shapiro-Wilk test
-
-shapiro.test(cleaned_data$height_cm)
-
-# Linear model 
-
-lm_height_cm <- lm(height_cm ~ calluna_NIN_type * age_class, data = cleaned_data)
-summary(lm_height_cm)
-
-#Checking residuals
-
-qqnorm(residuals(lm_height_cm))
-qqline(residuals(lm_height_cm))
-
-shapiro.test(residuals(lm_height_cm))
 
 
 # Boxplot
@@ -365,14 +326,14 @@ ggplot(df_sum_height, aes(x = calluna_NIN_type, y = mean_height_cm, group = age_
 )
   
 
-# Plotting fitted values, needs to be changed!!!
+
 
 ```
 
-# Leaf thickness (mm)
+# Leaf thickness (mm) visualizations
 
 ```{r}
-#| label: Leaf thickness statistics
+#| label: Leaf thickness visualizations
 
 #create table with leaf thickness 1,2,3 combined
 data_thickness <- cleaned_data %>% 
@@ -401,26 +362,7 @@ ggplot(data_thickness, aes(x = leaf_thickness)) +
   labs(x = "Leaf thickness (mm)", y = "Number of Calluna individuals")
 
 
-# testing for normal distribution with Q-Q plot --s shaped curve, indicates little normality
 
-qqnorm(data_thickness$leaf_thickness)
-qqline(data_thickness$leaf_thickness)
-
-# testing for normality with Shapiro-Wilk test --No normality
-
-shapiro.test(data_thickness$leaf_thickness)
-
-# Linear model 
-
-lm_leaf_thickness <- lm(leaf_thickness ~ calluna_NIN_type * age_class, data = data_thickness)
-summary(lm_leaf_thickness)
-
-#Checking residuals
-
-qqnorm(residuals(lm_leaf_thickness))
-qqline(residuals(lm_leaf_thickness))
-
-shapiro.test(residuals(lm_leaf_thickness))
 
 
 # Boxplot
@@ -479,14 +421,14 @@ ggplot(df_sum_leaf_thickness, aes(x = calluna_NIN_type, y = mean_leaf_thickness,
 )
 
 
-# Plotting fitted values, needs to be changed!!!
+
 
 ```
 
-# Leaf area (mm^2^)
+# Leaf area (mm^2^) visualizations
 
 ```{r}
-#| label: Leaf area statistics
+#| label: Leaf area visualizations
 
 # Data frame with mean and se
 
@@ -504,26 +446,6 @@ ggplot(cleaned_data, aes(x = leaf_area)) +
   theme_minimal() +
   labs(x = "Leaf area (mm^2))", y = "Number of Calluna individuals")
 
-# testing for normal distribution with Q-Q plot
-
-qqnorm(cleaned_data$leaf_area)
-qqline(cleaned_data$leaf_area)
-
-# testing for normality with Shapiro-Wilk test --not normally distributed
-
-shapiro.test(cleaned_data$leaf_area)
-
-# Linear model 
-
-lm_leaf_area <- lm(leaf_area ~ calluna_NIN_type * age_class, data = cleaned_data)
-summary(lm_leaf_area)
-
-#Checking residuals --not normally distributed
-
-qqnorm(residuals(lm_leaf_area))
-qqline(residuals(lm_leaf_area))
-
-shapiro.test(residuals(lm_leaf_area))
 
 
 # Boxplot
@@ -583,14 +505,13 @@ ggplot(df_sum_leaf_area, aes(x = calluna_NIN_type, y = mean_leaf_area, group = a
   )
 
 
-# Plotting fitted values, needs to be changed!!!
 
 ```
 
-# LDMC
+# LDMC visualizations
 
 ```{r}
-#| label: LDMC statistics
+#| label: LDMC visualizations
 
 # Data frame with mean and se
 
@@ -609,26 +530,6 @@ ggplot(cleaned_data, aes(x = LDMC)) +
   theme_minimal() +
   labs(x = "LDMC", y = "Number of Calluna individuals")
 
-# testing for normal distribution with Q-Q plot
-
-qqnorm(cleaned_data$LDMC)
-qqline(cleaned_data$LDMC)
-
-# testing for normality with Shapiro-Wilk test --no normality
-
-shapiro.test(cleaned_data$LDMC)
-
-# Linear model 
-
-lm_LDMC <- lm(LDMC ~ calluna_NIN_type * age_class, data = cleaned_data)
-summary(lm_LDMC)
-
-# Checking residuals --no normality
-
-qqnorm(residuals(lm_LDMC))
-qqline(residuals(lm_LDMC))
-
-shapiro.test(residuals(lm_LDMC))
 
 # Boxplot
 
@@ -689,14 +590,13 @@ ggplot(df_sum_LDMC, aes(x = calluna_NIN_type, y = mean_LDMC, group = age_class, 
 
 
 
-# Plotting fitted values, needs to be changed!!!
 
 ```
 
-# SLA
+# SLA visualizations
 
 ```{r}
-#| label: SLA statistics
+#| label: SLA visualizations
 
 # Data frame with mean and se
 
@@ -716,27 +616,7 @@ ggplot(cleaned_data, aes(x = SLA)) +
   labs(x = "SLA", y = "Number of Calluna individuals")
 
 
-# testing for normal distribution with Q-Q plot
 
-qqnorm(cleaned_data$SLA)
-qqline(cleaned_data$SLA)
-
-# testing for normality with Shapiro-Wilk test --no normality
-
-shapiro.test(cleaned_data$SLA)
-
-# Linear model 
-
-
-lm_SLA <- lm(SLA ~ calluna_NIN_type * age_class, data = cleaned_data)
-summary(lm_SLA)
-
-# Checking residuals --no normality
-
-qqnorm(residuals(lm_SLA))
-qqline(residuals(lm_SLA))
-
-shapiro.test(residuals(lm_SLA))
 
 # Boxplot
 
@@ -771,9 +651,9 @@ ggplot(df_sum_SLA, aes(x = age_class, y = mean_SLA, group = calluna_NIN_type, co
   panel.background = element_rect(fill = "white", color = NA),
   plot.background = element_rect(fill = "white", color = NA)
 ) + labs(
-    x = "Calluna NIN type",
+    x = "Age class",
     y = "SLA",
-    color = "Age class"
+    color = "Calluna NiN type"
   )
 
 #swapped axis, NiN type on x-axis
@@ -789,21 +669,12 @@ ggplot(df_sum_SLA, aes(x = calluna_NIN_type, y = mean_SLA, group = age_class, co
   panel.background = element_rect(fill = "white", color = NA),
   plot.background = element_rect(fill = "white", color = NA)
 ) + labs(
-    x = "Calluna NIN type",
+    x = "Calluna NiN type",
     y = "SLA",
     color = "Age class"
   )
 
 
-
-#Plotting fitted values --needs to be changed!
-
-newd_SLA <- expand.grid(calluna_NIN_type = levels(cleaned_data$calluna_NIN_type),
-                    age_class = levels(cleaned_data$age_class))
-newd_SLA$pred_SLA <- predict(lm_SLA, newd_SLA, se.fit = TRUE)$fit
-
-ggplot(newd_SLA, aes(x = age_class, y = pred_SLA, color = calluna_NIN_type, group = calluna_NIN_type)) +
-   geom_line() + geom_point() + theme_minimal()
 
 
 
@@ -873,16 +744,23 @@ ggplot(boot_df, aes(x = group)) +
 Attempting to make a qqplot with both age class and NiN + trait
 
 ```{r}
-#| label: testing age class and NiN type for normality with shapiro-wilk
+#| label: testing age class and NiN type for normality with shapiro-wilk, qq plots, and residuals
 
 #Find if data meets assumptions for a two-way ANOVA and if transformations are needed by using shapiro-wilk test and qq plot
 
 
 
-#Wet mass
+########################################### Wet mass
 cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(wet_mass)
 
-#QQ plot, separate for age class and NiN type
+#sort by p-values above 0.05, which indicates normality--------------> does not work yet, thought it would be eaier to filter out which relationships can be used for the ANOVA
+shapiro_test(wet_mass)%>%
+  filter(P_value > 0.05)
+
+
+
+
+#QQ plot, separate for age class and NiN type: The QQ plot is generally more informative than the Shapiro test because large datasets often make Shapiro significant even when deviations are minor.
 
 
 ggplot(cleaned_data, aes(sample = wet_mass)) +
@@ -897,7 +775,7 @@ ggplot(cleaned_data, aes(sample = wet_mass)) +
   facet_wrap(~ calluna_NiN_type) +
   theme_minimal()
 
-#Combined plot for age class*NiN type, for every combination type
+#Combined plot for age class*NiN type, for every combination type, better overview
 
 ggplot(cleaned_data, aes(sample = wet_mass)) +
   stat_qq() +
@@ -906,33 +784,211 @@ ggplot(cleaned_data, aes(sample = wet_mass)) +
   theme_minimal()
 
 
-#examine residuals---still need to understand why do this
 
-mod_wet_mass <- lm(wet_mass ~ age_class * calluna_NiN_type, data = cleaned_data)
-qqnorm(residuals(mod_wet_mass))
-qqline(residuals(mod_wet_mass), col = "red")
+#Checking residuals 
+#W = 0.98438, p-value = 0.001733, indicates non-normality
 
 
+lm_wet_mass <- lm(wet_mass ~ age_class*calluna_NIN_type, data = cleaned_data)
+summary(lm_wet_mass)
+
+qqnorm(residuals(lm_wet_mass))
+qqline(residuals(lm_wet_mass), col = "red")
+
+shapiro.test(residuals(lm_wet_mass))
 
 
 
 
 
-#Dry mass
+######################################### Dry mass
 cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(dry_mass)
 
-#Height
+#Combined plot for age class*NiN type, for every combination type
+
+ggplot(cleaned_data, aes(sample = dry_mass)) +
+  stat_qq() +
+  stat_qq_line(col = "red") +
+  facet_grid(age_class ~ calluna_NiN_type) +
+  theme_minimal()
+
+#Checking residuals
+# W = 0.97974, p-value = 0.0001981 indicates data is not normally distributed, even if it appears so
+
+lm_dry_mass <- lm(dry_mass ~ age_class*calluna_NIN_type, data = cleaned_data)
+summary(lm_wet_mass)
+
+qqnorm(residuals(lm_dry_mass))
+qqline(residuals(lm_dry_mass), col = "red")
+
+shapiro.test(residuals(lm_dry_mass))
+
+
+
+
+##########################################Height
 cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(height_cm)
 
-#Leaf area
+
+
+#Combined plot for age class*NiN type, for every combination type
+
+ggplot(cleaned_data, aes(sample = height_cm)) +
+  stat_qq() +
+  stat_qq_line(col = "red") +
+  facet_grid(age_class ~ calluna_NiN_type) +
+  theme_minimal()
+
+
+#Checking residuals
+#W = 0.98229, p-value = 0.0006273, indicates non-normality
+
+lm_height_cm <- lm(height_cm ~ age_class*calluna_NIN_type, data = cleaned_data)
+summary(lm_height_cm)
+
+qqnorm(residuals(lm_height_cm))
+qqline(residuals(lm_height_cm), col = "red")
+
+shapiro.test(residuals(lm_height_cm))
+
+
+
+
+
+###########################################Leaf area
 cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(leaf_area)
 
-#Leaf thickness
+
+
+#Combined plot for age class*NiN type, for every combination type
+
+ggplot(cleaned_data, aes(sample = leaf_area)) +
+  stat_qq() +
+  stat_qq_line(col = "red") +
+  facet_grid(age_class ~ calluna_NiN_type) +
+  theme_minimal()
+
+#Checking residuals
+#W = 0.98409, p-value = 0.001577, indicates non-normality
+
+lm_leaf_area <- lm(leaf_area ~ age_class*calluna_NIN_type, data = cleaned_data)
+summary(lm_leaf_area)
+
+qqnorm(residuals(lm_leaf_area))
+qqline(residuals(lm_leaf_area), col = "red")
+
+shapiro.test(residuals(lm_leaf_area))
+
+
+
+
+
+
+#####################################Leaf thickness
 data_thickness %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(leaf_thickness)
 
-#SLA
+
+
+
+#Combined plot for age class*NiN type, for every combination type
+
+ggplot(data_thickness, aes(sample = leaf_thickness)) +
+  stat_qq() +
+  stat_qq_line(col = "red") +
+  facet_grid(age_class ~ calluna_NiN_type) +
+  theme_minimal()
+
+
+#checking residuals
+#W = 0.96656, p-value = 6.664e-14, not normally distributed
+
+lm_leaf_thickness <- lm(leaf_thickness ~ age_class*calluna_NIN_type, data = data_thickness)
+summary(lm_leaf_thickness)
+
+qqnorm(residuals(lm_leaf_thickness))
+qqline(residuals(lm_leaf_thickness), col = "red")
+
+shapiro.test(residuals(lm_leaf_thickness))
+
+
+
+
+
+
+######################################SLA
 cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(SLA)
 
-#LDMC
+
+
+
+#Combined plot for age class*NiN type, for every combination type
+
+ggplot(cleaned_data, aes(sample = SLA)) +
+  stat_qq() +
+  stat_qq_line(col = "red") +
+  facet_grid(age_class ~ calluna_NiN_type) +
+  theme_minimal()
+
+#checking residuals
+#W = 0.96722, p-value = 1.639e-06, not normally distributed
+
+lm_SLA <- lm(SLA ~ age_class*calluna_NIN_type, data = cleaned_data)
+summary(lm_SLA)
+
+qqnorm(residuals(lm_SLA))
+qqline(residuals(lm_SLA), col = "red")
+
+shapiro.test(residuals(lm_SLA))
+
+
+
+
+
+####################################LDMC
 cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(LDMC)
+
+
+
+
+#Combined plot for age class*NiN type, for every combination type
+
+ggplot(cleaned_data, aes(sample = LDMC)) +
+  stat_qq() +
+  stat_qq_line(col = "red") +
+  facet_grid(age_class ~ calluna_NiN_type) +
+  theme_minimal()
+
+#Checking residuals
+#W = 0.98146, p-value = 0.0004388, not normally distributed
+
+lm_LDMC <- lm(LDMC ~ age_class*calluna_NIN_type, data = cleaned_data)
+summary(lm_LDMC)
+
+qqnorm(residuals(lm_LDMC))
+qqline(residuals(lm_LDMC), col = "red")
+
+shapiro.test(residuals(lm_LDMC))
+
+```
+
+# Levene test for checking variance
+
+```{r}
+#| label: levene test to check for homogeneity of variance as ANOVA requires roughly equal variance across all groups
+
+#wet mass
+
+
+leveneTest(
+  wet_mass ~ interaction(age_class, calluna_NiN_type),
+  data = cleaned_data
+)
+```
+
+# Account for random effects and grouping by PlantID and bulk samples
+
+Need to figure out how
+
+```{r}
+#| label: Accountig for grouping effects
 ```
