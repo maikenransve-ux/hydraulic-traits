@@ -22,7 +22,10 @@ library(dplyr)
 library(ggplot2)
 library(rstatix)
 library(car)
+library(emmeans) #Post hoc testing
 
+theme_set(theme_bw())
+#just writing this to commit something as it didn't work the first time
 ```
 
 ```{r}
@@ -65,6 +68,12 @@ cleaned_data$calluna_NIN_type <- factor((cleaned_data$calluna_NiN_type),
 # Check if changed successfully
 levels(cleaned_data$calluna_NiN_type)
 
+## Define colour palette (used with scale fill manual)
+
+NIN <- c("BH" = "#083508", "FH" = "#589758", "TH" = "#889000")
+AGE <- c("Pioneer" = "#087E8B","Building" = "#EB5461", "Mature" = "#884000") 
+
+
 ```
 
 Remember to exclude NA values if they confuse the code
@@ -77,7 +86,7 @@ Remember to exclude NA values if they confuse the code
 # Data frame with mean, median and se
 
 df_sum_wet_mass <- cleaned_data %>%
-  group_by(calluna_NIN_type, age_class) %>%
+  group_by(calluna_NiN_type, age_class) %>%
   summarise(mean_wet_mass = mean(wet_mass, na.rm=TRUE), 
             median_wet_mass= median.default(wet_mass, na.rm=TRUE),
             se_wet_mass = sd(wet_mass, na.rm=TRUE)/sqrt(n()), 
@@ -86,7 +95,7 @@ df_sum_wet_mass <- cleaned_data %>%
 #Histograms
 
 ggplot(cleaned_data, aes(x = wet_mass)) +
-  geom_histogram(bins = 30, color = "black", fill = "lightblue") +
+  geom_histogram(bins = 30, color = "lightblue", fill = "midnightblue") +
   facet_grid(calluna_NIN_type ~ age_class) +
   theme_minimal() +
   labs(x = "Wet mass (g)", y = "Number of Calluna individuals")
@@ -100,6 +109,8 @@ ggplot(cleaned_data, aes(x = age_class, y = wet_mass, fill = age_class)) +
   geom_jitter(width = 0.15, size = 1, alpha = 0.6) +
   facet_wrap(~ calluna_NIN_type) +
   theme_minimal() +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
   labs(x = "Age class", y = "Wet mass (g)")
 
 #Violin plot
@@ -109,6 +120,8 @@ ggplot(cleaned_data, aes(x = age_class, y = wet_mass, fill = age_class)) +
   stat_summary(fun = mean, geom = "point", shape = 23, size = 3, color = "black") +
   facet_wrap(~ calluna_NIN_type) +
   theme_minimal()+ 
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
   labs(
     x = "Calluna NIN type",
     y = "Mean wet mass (g)",
@@ -119,10 +132,12 @@ ggplot(cleaned_data, aes(x = age_class, y = wet_mass, fill = age_class)) +
 #Interactive plots
 
 
-ggplot(df_sum_wet_mass, aes(x = age_class, y = mean_wet_mass, group = calluna_NIN_type, color = calluna_NIN_type)) +
+ggplot(df_sum_wet_mass, aes(x = age_class, y = mean_wet_mass, group = calluna_NiN_type, color = calluna_NiN_type)) +
   geom_line() + geom_point(size = 3) +
   geom_errorbar(aes(ymin = mean_wet_mass - se_wet_mass, ymax = mean_wet_mass + se_wet_mass), width = 0.1) +
   theme_minimal()+ 
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
   labs(
     x = "Calluna NIN type",
     y = "Mean wet mass (g)",
@@ -131,11 +146,14 @@ ggplot(df_sum_wet_mass, aes(x = age_class, y = mean_wet_mass, group = calluna_NI
 
 
 
-#Single Density Plot --not working yet
+#Density Plot 
 
-ggplot(cleaned_data, aes(x = wet_mass, y=age_class~calluna_NiN_type) +
-  geom_density(fill = "skyblue", color = "midnightblue", alpha = 0.6) +
-  labs(title = "Density plot wet mass", x = "Wet mass", y = "Density") +
+ggplot(cleaned_data, aes(x = wet_mass, group=calluna_NiN_type, fill=calluna_NiN_type)) +
+  geom_density(alpha = 0.6) +
+    facet_wrap(~age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(title = "Density plot wet mass", x = "Wet mass") +
   theme_minimal()
 
 
@@ -152,7 +170,7 @@ ggplot(cleaned_data, aes(x = wet_mass, y=age_class~calluna_NiN_type) +
 # Data frame with mean and se
 
 df_sum_dry_mass <- cleaned_data %>%
-  group_by(calluna_NIN_type, age_class) %>%
+  group_by(calluna_NiN_type, age_class) %>%
   summarise(mean_dry_mass = mean(dry_mass, na.rm=TRUE),
             se_dry_mass = sd(dry_mass, na.rm=TRUE)/sqrt(n()),
             n = n(), .groups = "drop")
@@ -165,27 +183,6 @@ ggplot(cleaned_data, aes(x = dry_mass)) +
   theme_minimal() +
   labs(x = "Dry mass (g)", y = "Number of Calluna individuals")
 
-#testing for normal distribution with Q-Q plot
-
-qqnorm(cleaned_data$dry_mass)
-qqline(cleaned_data$dry_mass)
-
-#testing for normality with Shapiro-Wilk test ---gives a result of non-normal data
-
-shapiro.test(cleaned_data$dry_mass)
-
-#Linear model
-
-lm_dry_mass <- lm(dry_mass ~ calluna_NIN_type * age_class, data = cleaned_data)
-summary(lm_dry_mass)
-
-#Checking residuals
-
-qqnorm(residuals(lm_dry_mass))
-qqline(residuals(lm_dry_mass))
-
-shapiro.test(residuals(lm_dry_mass))
-
 
 #Boxplot
 
@@ -194,6 +191,8 @@ ggplot(cleaned_data, aes(x = age_class, y = dry_mass, fill = age_class)) +
   geom_jitter(width = 0.15, size = 1, alpha = 0.6) +
   facet_wrap(~ calluna_NIN_type) +
   theme_minimal() +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
   labs(x = "Age class", y = "Dry mass (g)")
 
 #Violin plot
@@ -202,11 +201,14 @@ ggplot(cleaned_data, aes(x = age_class, y = dry_mass, fill = age_class)) +
   geom_violin(trim = FALSE, alpha = 0.6) +
   stat_summary(fun = mean, geom = "point", shape = 23, size = 3, color = "black") +
   facet_wrap(~ calluna_NIN_type) +
-  theme_minimal()
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  theme_minimal() +
+  labs(x = "Age class", y = "Dry mass (g)")
 
 #Interactive plot
 
-ggplot(df_sum_dry_mass, aes(x = age_class, y = mean_dry_mass, group = calluna_NIN_type, color = calluna_NIN_type)) +
+ggplot(df_sum_dry_mass, aes(x = age_class, y = mean_dry_mass, group = calluna_NiN_type, color = calluna_NiN_type)) +
   geom_line(linewidth=1) + geom_point(size = 3.5) +
   geom_errorbar(aes(ymin = mean_dry_mass - se_dry_mass, ymax = mean_dry_mass + se_dry_mass), width = 0.1) +
   theme(
@@ -216,34 +218,39 @@ ggplot(df_sum_dry_mass, aes(x = age_class, y = mean_dry_mass, group = calluna_NI
   panel.grid.major = element_line(color = "grey90"),
   panel.background = element_rect(fill = "white", color = NA),
   plot.background = element_rect(fill = "white", color = NA)
-) + labs(
-    x = "Calluna NIN type",
+) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(
+    x = "Calluna NiN type",
     y = "Mean dry mass (g)",
     color = "Age class"
 )
 
 #swapped axis, NiN type on x-axis
 
-ggplot(df_sum_dry_mass, aes(x = calluna_NIN_type, y = mean_dry_mass, group = age_class, color = age_class)) +
+ggplot(df_sum_dry_mass, aes(x = calluna_NiN_type, y = mean_dry_mass, group = age_class, color = age_class)) +
   geom_line() + geom_point(size = 3) +
   geom_errorbar(aes(ymin = mean_dry_mass - se_dry_mass, ymax = mean_dry_mass + se_dry_mass), width = 0.1) +
-  theme_minimal() + labs(
-    x = "Calluna NIN type",
+  theme_minimal() +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(
+    x = "Calluna NiN type",
     y = "Mean dry mass (g)",
     color = "Age class"
 )
 
+#Density Plot 
 
+ggplot(cleaned_data, aes(x = dry_mass, group=calluna_NiN_type, fill=calluna_NiN_type)) +
+  geom_density(alpha = 0.6) +
+  facet_wrap(~age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(title = "Density plot dry mass (g)", x = "Dry mass (g)") +
+  theme_minimal()
 
-#Plotting fitted values, needs to be changed!!!
-
-newd_dry_mass <- expand.grid(calluna_NIN_type = levels(cleaned_data$calluna_NIN_type),
-                    age_class = levels(cleaned_data$age_class))
-newd_dry_mass$pred_dry_mass <- predict(lm_dry_mass, newd_dry_mass, se.fit = TRUE)$fit
-
-ggplot(newd_dry_mass, aes(x = age_class, y = pred_dry_mass, color = calluna_NIN_type, group = calluna_NIN_type)) +
-   geom_line() + geom_point() + geom_line(linewidth = 1) +
-geom_point(size = 3.5)+ theme_minimal()
 
 ```
 
@@ -255,7 +262,7 @@ geom_point(size = 3.5)+ theme_minimal()
 # Data frame with mean and se
 
 df_sum_height <- cleaned_data %>%
-  group_by(calluna_NIN_type, age_class) %>%
+  group_by(calluna_NiN_type, age_class) %>%
   summarise(mean_height_cm = mean(height_cm, na.rm=TRUE),
             se_height_cm = sd(height_cm, na.rm=TRUE)/sqrt(n()),
             n = n(), .groups = "drop")
@@ -277,6 +284,8 @@ ggplot(cleaned_data, aes(x = age_class, y = height_cm, fill = age_class)) +
   geom_jitter(width = 0.15, size = 1, alpha = 0.6) +
   facet_wrap(~ calluna_NIN_type) +
   theme_minimal() +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
   labs(x = "Age class", y = "Height (cm)")
 
 
@@ -286,12 +295,15 @@ ggplot(cleaned_data, aes(x = age_class, y = height_cm, fill = age_class)) +
   geom_violin(trim = FALSE, alpha = 0.6) +
   stat_summary(fun = mean, geom = "point", shape = 23, size = 3, color = "black") +
   facet_wrap(~ calluna_NIN_type) +
-  theme_minimal()
+  theme_minimal() +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(x = "Age class", y = "Height (cm)")
 
 # Interactive plot
 
 
-ggplot(df_sum_height, aes(x = age_class, y = mean_height_cm, group = calluna_NIN_type, color = calluna_NIN_type)) +
+ggplot(df_sum_height, aes(x = age_class, y = mean_height_cm, group = calluna_NiN_type, color = calluna_NiN_type)) +
   geom_line() + geom_point(size = 3) +
   geom_errorbar(aes(ymin = mean_height_cm - se_height_cm, ymax = mean_height_cm + se_height_cm), width = 0.1) +
    theme(
@@ -301,15 +313,18 @@ ggplot(df_sum_height, aes(x = age_class, y = mean_height_cm, group = calluna_NIN
   panel.grid.major = element_line(color = "grey90"),
   panel.background = element_rect(fill = "white", color = NA),
   plot.background = element_rect(fill = "white", color = NA)
-) + labs(
-    x = "Calluna NIN type",
+) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN)  +
+  labs(
+    x = "Calluna NiN type",
     y = "Mean height (cm)",
     color = "Age class"
 )
 
 # swapped axis, NiN type on x-axis
 
-ggplot(df_sum_height, aes(x = calluna_NIN_type, y = mean_height_cm, group = age_class, color = age_class)) +
+ggplot(df_sum_height, aes(x = calluna_NiN_type, y = mean_height_cm, group = age_class, color = age_class)) +
   geom_line() + geom_point(size = 3) +
   geom_errorbar(aes(ymin = mean_height_cm - se_height_cm, ymax = mean_height_cm + se_height_cm), width = 0.1) +
     theme(
@@ -319,13 +334,24 @@ ggplot(df_sum_height, aes(x = calluna_NIN_type, y = mean_height_cm, group = age_
   panel.grid.major = element_line(color = "grey90"),
   panel.background = element_rect(fill = "white", color = NA),
   plot.background = element_rect(fill = "white", color = NA)
-) + labs(
-    x = "Calluna NIN type",
+) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE)  +
+  labs(
+    x = "Calluna NiN type",
     y = "Mean height (cm)",
     color = "Age class"
 )
   
+#Density Plot 
 
+ggplot(cleaned_data, aes(x = height_cm, group=calluna_NiN_type, fill=calluna_NiN_type)) +
+  geom_density(alpha = 0.6) +
+  facet_wrap(~age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(title = "Density plot height (cm)", x = "Height (cm)") +
+  theme_minimal()
 
 
 ```
@@ -346,7 +372,7 @@ data_thickness <- cleaned_data %>%
 # Data frame with mean and se
 
 df_sum_leaf_thickness <- data_thickness %>%
-  group_by(calluna_NIN_type, age_class) %>%
+  group_by(calluna_NiN_type, age_class) %>%
   summarise(mean_leaf_thickness = mean(leaf_thickness, na.rm=TRUE),
             se_leaf_thickness = sd(leaf_thickness, na.rm=TRUE)/sqrt(n()),
             n = n(), .groups = "drop")
@@ -370,8 +396,10 @@ ggplot(data_thickness, aes(x = leaf_thickness)) +
 ggplot(data_thickness, aes(x = age_class, y = leaf_thickness, fill = age_class)) +
   geom_boxplot(alpha = 0.6, outlier.shape = NA) +
   geom_jitter(width = 0.15, size = 1, alpha = 0.6) +
-  facet_wrap(~ calluna_NIN_type) +
+  facet_wrap(~ calluna_NiN_type) +
   theme_minimal() +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
   labs(x = "Age class", y = "Leaf thickness (mm)")
 
 # violin plot
@@ -380,13 +408,16 @@ ggplot(data_thickness, aes(x = age_class, y = leaf_thickness, fill = age_class))
   geom_violin(trim = FALSE, alpha = 0.6) +
   stat_summary(fun = mean, geom = "point", shape = 23, size = 3, color = "black") +
   facet_wrap(~ calluna_NIN_type) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(x = "Age class", y = "Leaf thickness (mm)") +
   theme_minimal()
 
 
 # Interactive plot
 
 
-ggplot(df_sum_leaf_thickness, aes(x = age_class, y = mean_leaf_thickness, group = calluna_NIN_type, color = calluna_NIN_type)) +
+ggplot(df_sum_leaf_thickness, aes(x = age_class, y = mean_leaf_thickness, group = calluna_NiN_type, color = calluna_NiN_type)) +
   geom_line() + geom_point(size = 3) +
   geom_errorbar(aes(ymin = mean_leaf_thickness - se_leaf_thickness, ymax = mean_leaf_thickness + se_leaf_thickness), width = 0.1) +
    theme(
@@ -396,7 +427,10 @@ ggplot(df_sum_leaf_thickness, aes(x = age_class, y = mean_leaf_thickness, group 
   panel.grid.major = element_line(color = "grey90"),
   panel.background = element_rect(fill = "white", color = NA),
   plot.background = element_rect(fill = "white", color = NA)
-) + labs(
+) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(
     x = "Calluna NIN type",
     y = "Mean leaf thickness (mm)",
     color = "Age class"
@@ -404,7 +438,7 @@ ggplot(df_sum_leaf_thickness, aes(x = age_class, y = mean_leaf_thickness, group 
 
 #swapped axis, NiN type on x-axis
 
-ggplot(df_sum_leaf_thickness, aes(x = calluna_NIN_type, y = mean_leaf_thickness, group = age_class, color = age_class)) +
+ggplot(df_sum_leaf_thickness, aes(x = calluna_NiN_type, y = mean_leaf_thickness, group = age_class, color = age_class)) +
   geom_line() + geom_point(size = 3) +
   geom_errorbar(aes(ymin = mean_leaf_thickness - se_leaf_thickness, ymax = mean_leaf_thickness + se_leaf_thickness), width = 0.1) +
      theme(
@@ -414,13 +448,24 @@ ggplot(df_sum_leaf_thickness, aes(x = calluna_NIN_type, y = mean_leaf_thickness,
   panel.grid.major = element_line(color = "grey90"),
   panel.background = element_rect(fill = "white", color = NA),
   plot.background = element_rect(fill = "white", color = NA)
-) + labs(
-    x = "Calluna NIN type",
+) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(
+    x = "Calluna NiN type",
     y = "Mean leaf thickness (mm)",
     color = "Age class"
 )
 
+#Density Plot 
 
+ggplot(data_thickness, aes(x = leaf_thickness, group=calluna_NiN_type, fill=calluna_NiN_type)) +
+  geom_density(alpha = 0.6) +
+  facet_wrap(~age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(title = "Density plot leaf thickness (mm)", x = "Leaf thickness (cm)") +
+  theme_minimal()
 
 
 ```
@@ -433,7 +478,7 @@ ggplot(df_sum_leaf_thickness, aes(x = calluna_NIN_type, y = mean_leaf_thickness,
 # Data frame with mean and se
 
 df_sum_leaf_area <- cleaned_data %>%
-  group_by(calluna_NIN_type, age_class) %>%
+  group_by(calluna_NiN_type, age_class) %>%
   summarise(mean_leaf_area = mean(leaf_area, na.rm=TRUE),
             se_leaf_area = sd(leaf_area, na.rm=TRUE)/sqrt(n()),
             n = n(), .groups = "drop")
@@ -455,22 +500,28 @@ ggplot(cleaned_data, aes(x = age_class, y = leaf_area, fill = age_class)) +
   geom_jitter(width = 0.15, size = 1, alpha = 0.6) +
   facet_wrap(~ calluna_NIN_type) +
   theme_minimal() +
-  labs(x = "Age class", y = "Leaf area (mm)")
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(title = "Leaf area of Calluna in different age classes and NiN types", x = "Age class", y = "Leaf area (mm^2)")
 
 # violin plot
 
 ggplot(cleaned_data, aes(x = age_class, y = leaf_area, fill = age_class)) +
   geom_violin(trim = FALSE, alpha = 0.6) +
   stat_summary(fun = mean, geom = "point", shape = 23, size = 3, color = "black") +
-  facet_wrap(~ calluna_NIN_type) +
-  theme_minimal()
+  facet_wrap(~ calluna_NiN_type) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  theme_minimal()+
+  labs(title = "Leaf area of Calluna in different age classes and NiN types", x = "Age class", y = "Leaf area (mm^2)")
+
 
 
 
 # Interactive plot
 
 
-ggplot(df_sum_leaf_area, aes(x = age_class, y = mean_leaf_area, group = calluna_NIN_type, color = calluna_NIN_type)) +
+ggplot(df_sum_leaf_area, aes(x = age_class, y = mean_leaf_area, group = calluna_NiN_type, color = calluna_NiN_type)) +
   geom_line() + geom_point(size = 3) +
   geom_errorbar(aes(ymin = mean_leaf_area - se_leaf_area, ymax = mean_leaf_area + se_leaf_area), width = 0.1) +
   theme (
@@ -480,15 +531,21 @@ ggplot(df_sum_leaf_area, aes(x = age_class, y = mean_leaf_area, group = calluna_
   panel.grid.major = element_line(color = "grey90"),
   panel.background = element_rect(fill = "white", color = NA),
   plot.background = element_rect(fill = "white", color = NA)
-) + labs(
-    x = "Calluna NIN type",
+) + 
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(
+    x = "Calluna NiN type",
     y = "Mean leaf area (mm^2)",
     color = "Age class"
-  )
+  ) 
+ 
+
+
 
 # swapped axis, NiN type on x-axis
 
-ggplot(df_sum_leaf_area, aes(x = calluna_NIN_type, y = mean_leaf_area, group = age_class, color = age_class)) +
+ggplot(df_sum_leaf_area, aes(x = calluna_NiN_type, y = mean_leaf_area, group = age_class, color = age_class)) +
   geom_line() + geom_point(size = 3) +
   geom_errorbar(aes(ymin = mean_leaf_area - se_leaf_area, ymax = mean_leaf_area + se_leaf_area), width = 0.1) +
    theme (
@@ -498,13 +555,24 @@ ggplot(df_sum_leaf_area, aes(x = calluna_NIN_type, y = mean_leaf_area, group = a
   panel.grid.major = element_line(color = "grey90"),
   panel.background = element_rect(fill = "white", color = NA),
   plot.background = element_rect(fill = "white", color = NA)
-) + labs(
-    x = "Calluna NIN type",
+) + 
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(
+    x = "Calluna NiN type",
     y = "Mean leaf area (mm^2)",
     color = "Age class"
   )
 
+#Density Plot 
 
+ggplot(cleaned_data, aes(x = leaf_area, group=calluna_NiN_type, fill=calluna_NiN_type)) +
+  geom_density(alpha = 0.6) +
+  facet_wrap(~age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(title = "Density plot leaf area (mm^2)", x = "Leaf area (mm^2)") +
+  theme_minimal()
 
 ```
 
@@ -516,7 +584,7 @@ ggplot(df_sum_leaf_area, aes(x = calluna_NIN_type, y = mean_leaf_area, group = a
 # Data frame with mean and se
 
 df_sum_LDMC <- cleaned_data %>%
-  group_by(calluna_NIN_type, age_class) %>%
+  group_by(calluna_NiN_type, age_class) %>%
   summarise(mean_LDMC = mean(LDMC, na.rm=TRUE),
             se_LDMC = sd(LDMC, na.rm=TRUE)/sqrt(n()),
             n = n(), .groups = "drop")
@@ -538,6 +606,8 @@ ggplot(cleaned_data, aes(x = age_class, y = LDMC, fill = age_class)) +
   geom_jitter(width = 0.15, size = 1, alpha = 0.6) +
   facet_wrap(~ calluna_NIN_type) +
   theme_minimal() +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
   labs(x = "Age class", y = "LDMC")
 
 # violin plot
@@ -546,14 +616,17 @@ ggplot(cleaned_data, aes(x = age_class, y = LDMC, fill = age_class)) +
   geom_violin(trim = FALSE, alpha = 0.6) +
   stat_summary(fun = mean, geom = "point", shape = 23, size = 3, color = "black") +
   facet_wrap(~ calluna_NIN_type) +
-  theme_minimal()
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  theme_minimal() +
+  labs(x = "Age class", y = "LDMC")
 
 
 
 # Interactive plot
 
 
-ggplot(df_sum_LDMC, aes(x = age_class, y = mean_LDMC, group = calluna_NIN_type, color = calluna_NIN_type)) +
+ggplot(df_sum_LDMC, aes(x = age_class, y = mean_LDMC, group = calluna_NiN_type, color = calluna_NiN_type)) +
   geom_line() + geom_point(size = 3) +
   geom_errorbar(aes(ymin = mean_LDMC - se_LDMC, ymax = mean_LDMC + se_LDMC), width = 0.1) +
      theme (
@@ -563,8 +636,11 @@ ggplot(df_sum_LDMC, aes(x = age_class, y = mean_LDMC, group = calluna_NIN_type, 
   panel.grid.major = element_line(color = "grey90"),
   panel.background = element_rect(fill = "white", color = NA),
   plot.background = element_rect(fill = "white", color = NA)
-) + labs(
-    x = "Calluna NIN type",
+) + 
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(
+    x = "Calluna NiN type",
     y = "LDMC",
     color = "Age class"
   )
@@ -572,7 +648,7 @@ ggplot(df_sum_LDMC, aes(x = age_class, y = mean_LDMC, group = calluna_NIN_type, 
 
 #swapped axis, NiN type on x-axis
 
-ggplot(df_sum_LDMC, aes(x = calluna_NIN_type, y = mean_LDMC, group = age_class, color = age_class)) +
+ggplot(df_sum_LDMC, aes(x = calluna_NiN_type, y = mean_LDMC, group = age_class, color = age_class)) +
   geom_line() + geom_point(size = 3) +
   geom_errorbar(aes(ymin = mean_LDMC - se_LDMC, ymax = mean_LDMC + se_LDMC), width = 0.1) +
     theme (
@@ -582,11 +658,24 @@ ggplot(df_sum_LDMC, aes(x = calluna_NIN_type, y = mean_LDMC, group = age_class, 
   panel.grid.major = element_line(color = "grey90"),
   panel.background = element_rect(fill = "white", color = NA),
   plot.background = element_rect(fill = "white", color = NA)
-) + labs(
+) + 
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(
     x = "Calluna NIN type",
     y = "LDMC",
     color = "Age class"
   )
+
+#Density Plot 
+
+ggplot(cleaned_data, aes(x = LDMC, group=calluna_NiN_type, fill=calluna_NiN_type)) +
+  geom_density(alpha = 0.6) +
+  facet_wrap(~age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(title = "Density plot LDMC", x = "LDMC") +
+  theme_minimal()
 
 
 
@@ -602,7 +691,7 @@ ggplot(df_sum_LDMC, aes(x = calluna_NIN_type, y = mean_LDMC, group = age_class, 
 
 
 df_sum_SLA <- cleaned_data %>%
-  group_by(calluna_NIN_type, age_class) %>%
+  group_by(calluna_NiN_type, age_class) %>%
   summarise(mean_SLA = mean(SLA, na.rm=TRUE),
             se_SLA = sd(SLA, na.rm=TRUE)/sqrt(n()),
             n = n(), .groups = "drop")
@@ -626,6 +715,8 @@ ggplot(cleaned_data, aes(x = age_class, y = SLA, fill = age_class)) +
   geom_jitter(width = 0.15, size = 1, alpha = 0.6) +
   facet_wrap(~ calluna_NIN_type) +
   theme_minimal() +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
   labs(x = "Age class", y = "SLA")
 
 # violin plot
@@ -634,13 +725,16 @@ ggplot(cleaned_data, aes(x = age_class, y = SLA, fill = age_class)) +
   geom_violin(trim = FALSE, alpha = 0.6) +
   stat_summary(fun = mean, geom = "point", shape = 23, size = 3, color = "black") +
   facet_wrap(~ calluna_NIN_type) +
-  theme_minimal()
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  theme_minimal() +
+  labs(x = "Age class", y = "SLA")
 
 
 # Interactive plot
 
 
-ggplot(df_sum_SLA, aes(x = age_class, y = mean_SLA, group = calluna_NIN_type, color = calluna_NIN_type)) +
+ggplot(df_sum_SLA, aes(x = age_class, y = mean_SLA, group = calluna_NiN_type, color = calluna_NiN_type)) +
   geom_line() + geom_point(size = 3) +
   geom_errorbar(aes(ymin = mean_SLA - se_SLA, ymax = mean_SLA + se_SLA), width = 0.1) +
    theme (
@@ -650,7 +744,10 @@ ggplot(df_sum_SLA, aes(x = age_class, y = mean_SLA, group = calluna_NIN_type, co
   panel.grid.major = element_line(color = "grey90"),
   panel.background = element_rect(fill = "white", color = NA),
   plot.background = element_rect(fill = "white", color = NA)
-) + labs(
+) + 
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN)  +
+  labs(
     x = "Age class",
     y = "SLA",
     color = "Calluna NiN type"
@@ -658,7 +755,7 @@ ggplot(df_sum_SLA, aes(x = age_class, y = mean_SLA, group = calluna_NIN_type, co
 
 #swapped axis, NiN type on x-axis
 
-ggplot(df_sum_SLA, aes(x = calluna_NIN_type, y = mean_SLA, group = age_class, color = age_class)) +
+ggplot(df_sum_SLA, aes(x = calluna_NiN_type, y = mean_SLA, group = age_class, color = age_class)) +
   geom_line() + geom_point(size = 3) +
   geom_errorbar(aes(ymin = mean_SLA - se_SLA, ymax = mean_SLA + se_SLA), width = 0.1) +
    theme (
@@ -668,11 +765,25 @@ ggplot(df_sum_SLA, aes(x = calluna_NIN_type, y = mean_SLA, group = age_class, co
   panel.grid.major = element_line(color = "grey90"),
   panel.background = element_rect(fill = "white", color = NA),
   plot.background = element_rect(fill = "white", color = NA)
-) + labs(
+) + 
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE)  +
+  labs(
     x = "Calluna NiN type",
     y = "SLA",
     color = "Age class"
   )
+
+
+#Density Plot 
+
+ggplot(cleaned_data, aes(x = SLA, group=calluna_NiN_type, fill=calluna_NiN_type)) +
+  geom_density(alpha = 0.6) +
+  facet_wrap(~age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(title = "Density plot SLA", x = "SLA") +
+  theme_minimal()
 
 
 
@@ -683,65 +794,9 @@ ggplot(df_sum_SLA, aes(x = calluna_NIN_type, y = mean_SLA, group = age_class, co
 
 # 
 
-# Testing bootstrap modelling
+# Testing for normality
 
-Does not work at the moment, have to figure out how to write this code and if it is needed
-
-```{r}
-#| label: bootstrap modelling
-
-library(boot)
-
-boot_dry_mass <- function(data, indices) {
-  d <- cleaned_data[indices, ]
-  
-  lm_dry_mass
- 
-  coef(lm_dry_mass)
-
-}
-
-set.seed(123)
-
-boot_result_dry_mass <- boot(
-  data = df,
-  statistic = boot_dry_mass,
-  R = 1000
-)
-
-
-bt <- boot_result_dry_mass$t
-
-apply(bt, 2, quantile, probs = c(0.025, 0.975))
-
-
-boot_df <- data.frame(
-  mean = boot_result_dry_mass$t0,
-  lower = apply(boot_result_dry_mass$t, 2, quantile, 0.025),
-  upper = apply(boot_result_dry_mass$t, 2, quantile, 0.975)
-)
-
-
-
-ggplot(boot_df, aes(x = age_class, y = mean, color= calluna_NIN_type)) +
-  geom_point() +
-  geom_errorbar(aes(ymin = lower, ymax = upper))
-
-
-
-hist(boot_result_dry_mass$t[,1],
-     main = "Bootstrap distribution",
-     xlab = "Mean dry mass")
-
-ggplot(boot_df, aes(x = group)) +
-  geom_histogram(bins = 10,
-                 fill = "lavender",
-                 color = "black")
-```
-
-# Testing for normality before ANOVA
-
-Attempting to make a qqplot with both age class and NiN + trait
+The dependent variable should be approximately normally distributed within each group. While ANOVA is relatively robust to moderate violations of normality, especially with larger sample sizes, extreme departures can affect validity.
 
 ```{r}
 #| label: testing age class and NiN type for normality with shapiro-wilk, qq plots, and residuals
@@ -751,29 +806,13 @@ Attempting to make a qqplot with both age class and NiN + trait
 
 
 ########################################### Wet mass
-cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(wet_mass)
+cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(wet_mass) %>% filter(p<0.05)
 
-#sort by p-values above 0.05, which indicates normality--------------> does not work yet, thought it would be eaier to filter out which relationships can be used for the ANOVA
-shapiro_test(wet_mass)%>%
-  filter(P_value > 0.05)
+#sort by p-values above 0.05, which indicates normality. Thought it would be eaier to filter out which relationships can be used for the ANOVA, or maybe which we should transform before ANOVA?
 
 
 
-
-#QQ plot, separate for age class and NiN type: The QQ plot is generally more informative than the Shapiro test because large datasets often make Shapiro significant even when deviations are minor.
-
-
-ggplot(cleaned_data, aes(sample = wet_mass)) +
-  stat_qq() +
-  stat_qq_line(col = "red") +
-  facet_wrap(~ age_class) +
-  theme_minimal()
-
-ggplot(cleaned_data, aes(sample = wet_mass)) +
-  stat_qq() +
-  stat_qq_line(col = "red") +
-  facet_wrap(~ calluna_NiN_type) +
-  theme_minimal()
+# QQ plot is generally more informative than the Shapiro test because large datasets often make Shapiro significant even when deviations are minor.
 
 #Combined plot for age class*NiN type, for every combination type, better overview
 
@@ -784,16 +823,17 @@ ggplot(cleaned_data, aes(sample = wet_mass)) +
   theme_minimal()
 
 
+#Linear model with interaction of age class and NiN type
+lm_wet_mass <- lm(wet_mass ~ age_class*calluna_NiN_type, data = cleaned_data)
+summary(lm_wet_mass)
+
+
 
 #Checking residuals 
 #W = 0.98438, p-value = 0.001733, indicates non-normality
-
-
-lm_wet_mass <- lm(wet_mass ~ age_class*calluna_NIN_type, data = cleaned_data)
-summary(lm_wet_mass)
-
 qqnorm(residuals(lm_wet_mass))
 qqline(residuals(lm_wet_mass), col = "red")
+plot(lm_wet_mass, which = 3)
 
 shapiro.test(residuals(lm_wet_mass))
 
@@ -802,7 +842,7 @@ shapiro.test(residuals(lm_wet_mass))
 
 
 ######################################### Dry mass
-cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(dry_mass)
+cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(dry_mass) %>% filter(p>0.05)
 
 #Combined plot for age class*NiN type, for every combination type
 
@@ -812,23 +852,26 @@ ggplot(cleaned_data, aes(sample = dry_mass)) +
   facet_grid(age_class ~ calluna_NiN_type) +
   theme_minimal()
 
-#Checking residuals
-# W = 0.97974, p-value = 0.0001981 indicates data is not normally distributed, even if it appears so
 
-lm_dry_mass <- lm(dry_mass ~ age_class*calluna_NIN_type, data = cleaned_data)
+
+#Linear model with interaction of age class and NiN type
+lm_dry_mass <- lm(dry_mass ~ age_class*calluna_NiN_type, data = cleaned_data)
 summary(lm_wet_mass)
 
+
+#Checking residuals
+# W = 0.97974, p-value = 0.0001981 indicates data is not normally distributed, even if it appears so
 qqnorm(residuals(lm_dry_mass))
 qqline(residuals(lm_dry_mass), col = "red")
+plot(lm_dry_mass, which = 3, add.smooth = FALSE)
 
 shapiro.test(residuals(lm_dry_mass))
 
 
 
 
-##########################################Height
-cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(height_cm)
-
+########################################## Height
+cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(height_cm) %>% filter(p>0.05)
 
 
 #Combined plot for age class*NiN type, for every combination type
@@ -840,14 +883,19 @@ ggplot(cleaned_data, aes(sample = height_cm)) +
   theme_minimal()
 
 
-#Checking residuals
-#W = 0.98229, p-value = 0.0006273, indicates non-normality
 
-lm_height_cm <- lm(height_cm ~ age_class*calluna_NIN_type, data = cleaned_data)
+#Linear model with interaction of age class and NiN type
+lm_height_cm <- lm(height_cm ~ age_class*calluna_NiN_type, data = cleaned_data)
 summary(lm_height_cm)
 
+
+
+
+#Checking residuals
+#W = 0.98229, p-value = 0.0006273, indicates non-normality
 qqnorm(residuals(lm_height_cm))
 qqline(residuals(lm_height_cm), col = "red")
+plot(lm_height_cm, which = 3, add.smooth = FALSE)
 
 shapiro.test(residuals(lm_height_cm))
 
@@ -855,8 +903,8 @@ shapiro.test(residuals(lm_height_cm))
 
 
 
-###########################################Leaf area
-cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(leaf_area)
+########################################### Leaf area
+cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(leaf_area) %>% filter(p>0.05)
 
 
 
@@ -868,14 +916,19 @@ ggplot(cleaned_data, aes(sample = leaf_area)) +
   facet_grid(age_class ~ calluna_NiN_type) +
   theme_minimal()
 
+#Linear model leaf area with interaction of age class and NiN type
+
+lm_leaf_area <- lm(leaf_area ~ age_class*calluna_NiN_type, data = cleaned_data)
+summary(lm_leaf_area)
+
+
+
 #Checking residuals
 #W = 0.98409, p-value = 0.001577, indicates non-normality
 
-lm_leaf_area <- lm(leaf_area ~ age_class*calluna_NIN_type, data = cleaned_data)
-summary(lm_leaf_area)
-
 qqnorm(residuals(lm_leaf_area))
 qqline(residuals(lm_leaf_area), col = "red")
+plot(lm_leaf_area, which = 3, add.smooth = FALSE)
 
 shapiro.test(residuals(lm_leaf_area))
 
@@ -884,8 +937,8 @@ shapiro.test(residuals(lm_leaf_area))
 
 
 
-#####################################Leaf thickness
-data_thickness %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(leaf_thickness)
+##################################### Leaf thickness
+data_thickness %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(leaf_thickness) %>% filter(p>0.05)
 
 
 
@@ -899,14 +952,17 @@ ggplot(data_thickness, aes(sample = leaf_thickness)) +
   theme_minimal()
 
 
-#checking residuals
-#W = 0.96656, p-value = 6.664e-14, not normally distributed
 
-lm_leaf_thickness <- lm(leaf_thickness ~ age_class*calluna_NIN_type, data = data_thickness)
+#Linear model with interaction of age class and NiN type
+lm_leaf_thickness <- lm(leaf_thickness ~ age_class*calluna_NiN_type, data = data_thickness)
 summary(lm_leaf_thickness)
 
+
+#checking residuals
+#W = 0.96656, p-value = 6.664e-14, not normally distributed
 qqnorm(residuals(lm_leaf_thickness))
 qqline(residuals(lm_leaf_thickness), col = "red")
+plot(lm_leaf_thickness, which = 3, add.smooth = FALSE)
 
 shapiro.test(residuals(lm_leaf_thickness))
 
@@ -915,10 +971,8 @@ shapiro.test(residuals(lm_leaf_thickness))
 
 
 
-######################################SLA
-cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(SLA)
-
-
+###################################### SLA
+cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(SLA) %>% filter(p>0.05)
 
 
 #Combined plot for age class*NiN type, for every combination type
@@ -929,14 +983,17 @@ ggplot(cleaned_data, aes(sample = SLA)) +
   facet_grid(age_class ~ calluna_NiN_type) +
   theme_minimal()
 
-#checking residuals
-#W = 0.96722, p-value = 1.639e-06, not normally distributed
 
-lm_SLA <- lm(SLA ~ age_class*calluna_NIN_type, data = cleaned_data)
+#Linear model with interaction of age class and NiN type
+lm_SLA <- lm(SLA ~ age_class*calluna_NiN_type, data = cleaned_data)
 summary(lm_SLA)
 
+
+#checking residuals
+#W = 0.96722, p-value = 1.639e-06, not normally distributed
 qqnorm(residuals(lm_SLA))
 qqline(residuals(lm_SLA), col = "red")
+plot(lm_SLA, which = 3, add.smooth = FALSE)
 
 shapiro.test(residuals(lm_SLA))
 
@@ -944,10 +1001,8 @@ shapiro.test(residuals(lm_SLA))
 
 
 
-####################################LDMC
-cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(LDMC)
-
-
+#################################### LDMC
+cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(LDMC) %>% filter(p>0.05)
 
 
 #Combined plot for age class*NiN type, for every combination type
@@ -961,34 +1016,308 @@ ggplot(cleaned_data, aes(sample = LDMC)) +
 #Checking residuals
 #W = 0.98146, p-value = 0.0004388, not normally distributed
 
-lm_LDMC <- lm(LDMC ~ age_class*calluna_NIN_type, data = cleaned_data)
+#Linear model with interaction of age class and NiN type
+lm_LDMC <- lm(LDMC ~ age_class*calluna_NiN_type, data = cleaned_data)
 summary(lm_LDMC)
 
+
+
+#Checking residuals
+#W = 0.98146, p-value = 0.0004388, not normally distributed
 qqnorm(residuals(lm_LDMC))
 qqline(residuals(lm_LDMC), col = "red")
+plot(lm_LDMC, which = 3, add.smooth = FALSE)
 
 shapiro.test(residuals(lm_LDMC))
 
 ```
 
-# Levene test for checking variance
+# Levenetest for checking variance -not so relevant
+
+Assumption for ANOVA is homogeneity of variance, so it is roughly equal cross all groups. Ensures that the pooled variance estimate used in ANOVA calculations is appropriate.
 
 ```{r}
 #| label: levene test to check for homogeneity of variance as ANOVA requires roughly equal variance across all groups
 
-#wet mass
+#wet mass, result significant, variance is not equal
 
 
 leveneTest(
   wet_mass ~ interaction(age_class, calluna_NiN_type),
   data = cleaned_data
 )
+
+#Dry mass, result non-significant, variance is equal
+
+leveneTest(
+  dry_mass ~ interaction(age_class, calluna_NiN_type),
+  data = cleaned_data
+)
+
+#Height, results significant, variance is not equal
+
+leveneTest(
+  height_cm ~ interaction(age_class, calluna_NiN_type),
+  data = cleaned_data
+)
+
+#Leaf area, results significant, variance is not equal
+
+leveneTest(
+  leaf_area ~ interaction(age_class, calluna_NiN_type),
+  data = cleaned_data
+)
+
+#Leaf thickness, results significant, variance is not equal
+
+leveneTest(
+  leaf_thickness ~ interaction(age_class, calluna_NiN_type),
+  data = data_thickness
+)
+
+#LDMC, results not significant, variance is equal
+
+leveneTest(
+  LDMC ~ interaction(age_class, calluna_NiN_type),
+  data = cleaned_data
+)
+
+#SLA, results significant, variance is not equal
+
+leveneTest(
+  SLA ~ interaction(age_class, calluna_NiN_type),
+  data = cleaned_data
+)
 ```
 
-# Account for random effects and grouping by PlantID and bulk samples
+# Account for random effects and data clustering with linear mixed effects models
 
-Need to figure out how
+→ likely fixed effects with interactions: trait \~  NIN\*age class, effect of NiN type on trait also depends on effect of age class, and possibly plant sampling groups
+
+-Plant ID and leaf bulks are grouping factors that should be used as random effects to account for non-independence. To account for “within-individual” grouping. These are nested groups with lower level units contained within higher levels
+
+→ often mixed-effects models as factors with few levels are fixed (NiN, age class) and factors with many levels are random (Plant 1-7 grouping)
+
+\
+-Linear mixed effects models, lme4 package, diff model, but same anova, summary etc. 1I plantID, not for height due to low replicate number
 
 ```{r}
-#| label: Accountig for grouping effects
+#| label: lme4 modelling
+#| 
+```
+
+# ANOVA and Post-hoc testing
+
+All results show significance between age class, NiN and the interaction of the two with ANOVA
+
+Post hoc test with more than two levels, emmeans package
+
+```{r}
+#| label: ANOVA
+
+#Wet mass
+
+anova(lm_wet_mass)
+
+(emmeans_wet_mass<- emmeans(lm_wet_mass, ~ age_class * calluna_NiN_type))
+pairs(emmeans_wet_mass)
+
+#Dry mass
+
+anova(lm_dry_mass)
+
+(emmeans_dry_mass<- emmeans(lm_dry_mass, ~ age_class * calluna_NiN_type))
+pairs(emmeans_dry_mass)
+
+#Height
+
+anova(lm_height_cm)
+
+(emmeans_height_cm<- emmeans(lm_height_cm, ~ age_class * calluna_NiN_type))
+pairs(emmeans_height_cm)
+
+#Leaf area
+
+anova(lm_leaf_area)
+
+(emmeans_leaf_area<- emmeans(lm_leaf_area, ~ age_class * calluna_NiN_type))
+pairs(emmeans_leaf_area)
+
+#Leaf thickness
+
+anova(lm_leaf_thickness)
+
+(emmeans_leaf_thickness<- emmeans(lm_leaf_thickness, ~ age_class * calluna_NiN_type))
+pairs(emmeans_leaf_thickness)
+
+#LDMC
+
+anova(lm_LDMC)
+
+(emmeans_LDMC<- emmeans(lm_LDMC, ~ age_class * calluna_NiN_type))
+pairs(emmeans_LDMC) 
+
+
+
+#SLA
+
+anova(lm_SLA)
+
+(emmeans_SLA<- emmeans(lm_SLA, ~ age_class * calluna_NiN_type))
+pairs(emmeans_SLA) 
+```
+
+# Data transformation -probably not necessary as most data follows a somewhat normal distribution
+
+**-data often natural log transformed and scaled** to fairly compare across traits, we can statistically contrast the different traits side-by-side: makes skewed distributions more normal by pulling extreme outliers inward; allows interpretation in multiplicative steps (1x increase → 10x increase etc.); prevents heteroscedasticity (data artificially widening as mean increases); when comparing multiple traits, scaling makes sure a change of one unit in one trait means the same across all variables
+
+-transform traits individually and do back-transformation
+
+```{r}
+#| label: data transformation
+```
+
+# Multivariate analysis
+
+Because traits are not independent, we should investigate interactions between them
+
+```{r}
+#| label: Multivariate analysis
+
+#manova_mod <- manova(
+ # cbind(
+  #  dry_mass,
+   # height,
+    #leaf_area,
+    #leaf_thickness,
+    #SLA,
+    #LDMC
+  #) ~ age_class * NiN_type,
+  #data = cleaned_data
+#)
+
+```
+
+# Presenting results -interactive plots
+
+-add titles eventually
+
+```{r}
+#| label: making summary plots for presenting results in a tidy manner
+
+
+#Excluding NAs from the clalculations of the mean as they prevent results, na.omit()
+
+
+
+#Wet mass
+
+
+ggplot(df_sum_wet_mass, 
+       aes(x = calluna_NiN_type, y = mean_wet_mass, colour = age_class,
+           ymin = mean_wet_mass - se_wet_mass, ymax = mean_wet_mass + se_wet_mass)) +
+  # this adds the mean
+  geom_point(size = 3) +
+  # this adds the error bars
+  geom_errorbar(width = 0.1) +  
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE)  +
+  xlab("NiN type") + ylab("Wet mass (g)") + 
+  # use a more professional theme
+  theme_bw()
+
+ggplot(df_sum_wet_mass, 
+       aes(x = calluna_NiN_type, y = mean_wet_mass, fill = age_class,
+           ymin = mean_wet_mass - se_wet_mass, ymax = mean_wet_mass + se_wet_mass)) +
+  # this adds the mean
+  geom_col(position = position_dodge()) +
+  # this adds the error bars
+  geom_errorbar(position = position_dodge(0.9), width=.2) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  # controlling the appearance
+  xlab("NiN type") + ylab("Wet mass (g)")
+
+
+
+#Dry mass
+
+pos <- position_dodge(0.15). #to dodge the position of plotted points if overlapping
+
+ggplot(df_sum_dry_mass, 
+       aes(x = calluna_NiN_type, y = mean_dry_mass, colour = age_class,
+           ymin = mean_dry_mass - se_dry_mass, ymax = mean_dry_mass + se_dry_mass)) +
+  geom_point(size = 3, position = pos) +
+  geom_errorbar(width = 0.1, position = pos) +  
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE)  +
+  xlab("NiN type") + ylab("Dry mass (g)") + 
+  theme_bw()
+
+
+#Height
+
+
+ggplot(df_sum_height, 
+       aes(x = calluna_NiN_type, y = mean_height_cm, colour = age_class,
+           ymin = mean_height_cm - se_height_cm, ymax = mean_height_cm + se_height_cm)) +
+  geom_point(size = 3) +
+  geom_errorbar(width = 0.1) +  
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE)  +
+  xlab("NiN type") + ylab("Height (cm)") + 
+  theme_bw()
+
+
+#Leaf area
+
+
+ggplot(df_sum_leaf_area, 
+       aes(x = calluna_NiN_type, y = mean_leaf_area, colour = age_class,
+           ymin = mean_leaf_area - se_leaf_area, ymax = mean_leaf_area + se_leaf_area)) +
+  geom_point(size = 3) +
+  geom_errorbar(width = 0.1) +  
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE)  +
+  xlab("NiN type") + ylab("Leaf area (mm^2)") + 
+  theme_bw()
+
+
+#Leaf thickness
+
+ggplot(df_sum_leaf_thickness, 
+       aes(x = calluna_NiN_type, y = mean_leaf_thickness, colour = age_class,
+           ymin = mean_leaf_thickness - se_leaf_thickness, ymax = mean_leaf_thickness + se_leaf_thickness)) +
+  geom_point(size = 3) +
+  geom_errorbar(width = 0.1) +  
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE)  +
+  xlab("NiN type") + ylab("Leaf thickness (mm)") + 
+  theme_bw()
+
+
+#LDMC
+
+ggplot(df_sum_LDMC, 
+       aes(x = calluna_NiN_type, y = mean_LDMC, colour = age_class,
+           ymin = mean_LDMC - se_LDMC, ymax = mean_LDMC + se_LDMC)) +
+  geom_point(size = 3) +
+  geom_errorbar(width = 0.1) +  
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE)  +
+  xlab("NiN type") + ylab("LDMC") + 
+  theme_bw()
+
+
+#SLA
+
+ggplot(df_sum_SLA, 
+       aes(x = calluna_NiN_type, y = mean_SLA, colour = age_class,
+           ymin = mean_SLA - se_SLA, ymax = mean_SLA + se_SLA)) +
+  geom_point(size = 3) +
+  geom_errorbar(width = 0.1) +  
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE)  +
+  xlab("NiN type") + ylab("SLA") + 
+  theme_bw()
 ```
