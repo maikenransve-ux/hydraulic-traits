@@ -373,6 +373,83 @@ unique(data$remark)
 #32 comments ok?
 ```
 
+# Correcting outliers
+
+```{r}
+#|label: Correcting outliers
+
+#Mean dry_mass for AGV1765 is almost 10x higher than other values, decided it's a typo, decision is to change the value by adding in an extra 0. Column: dry_mass and 0.01146g
+
+data <- data %>%
+  mutate(
+    
+    # adjust to be which ever trait has the issue
+    dry_mass = if_else(
+      
+      # list the specific envelope ID with the issue and then the specific  column  value of interest that was specified above 
+      envelope_ID == "AGV1765" & dry_mass == 0.01146,
+      
+      # write the replacement value
+      0.001146,
+      
+      dry_mass))
+
+# Add remark
+
+# Use mutate() and str_c() to add comments to a string
+data <- data %>%
+  
+  # in the 'remark' or the 'comment' column, list the envelopeID from above
+  mutate(remark = ifelse(envelope_ID %in% c("AGV1765"),
+                         
+                         # Add to the existing 'remark' column, a comment but ensure it starts with '; ' first so it's not running in with the prior column, but adds to the end. Here hte comment is 'dry mass error updated'
+                         # "; dry mass error, updated"
+                         
+                         str_c(coalesce(remark, ""), "; dry mass error, updated"), remark)) 
+
+########################################################
+
+#AMP6104 has 10x lower dry mass, comment says "6dp at dry mass", so decision to remove extra 0 behind the comma, dry_mass and 0.00020g
+
+
+data <- data %>%
+  mutate(
+    
+    dry_mass = if_else(
+      
+      envelope_ID == "AMP6104" & dry_mass == 0.00020,
+      0.00200,
+      
+      dry_mass))
+
+data <- data %>%
+  
+  mutate(remark = ifelse(envelope_ID %in% c("AMP6104"),
+                         
+                         str_c(coalesce(remark, ""), "; dry mass error, updated"), remark)) 
+
+
+
+########################################################
+#ACI2672 has 3 leaves as bulk nr written in data file and on actual envelope, but on the leaf area scans there are 5 leaves, later it is only found 4 leaves at data cleaning
+
+data <- data %>%
+  mutate(
+    
+    bulk_nr_leaves = if_else(
+      
+      envelope_ID == "ACI2672" & bulk_nr_leaves == 3,
+      5,
+      
+      bulk_nr_leaves))
+
+data <- data %>%
+  
+  mutate(remark = ifelse(envelope_ID %in% c("ACI2672"),
+                         
+                         str_c(coalesce(remark, ""), "; bulk nr error, updated"), remark)) 
+```
+
 # Calculate per leaf trait values
 
 While the bulk number from the envelope represents the initial sample size, sometimes leaves are lost or gained during the trait sampling process. Need to check comments and the particle count from the leaf area scans to adjust the bulk number leaves for each trait. This needs to be done before calculating per leaf trait values, which can be used for metrics like SLA and LDMC.
@@ -418,7 +495,6 @@ data <- data %>%
 data <- data %>%
   mutate(bulk_nr_leaf_area = case_when(
     # Must be cross-checked against images!! DO NOT UNIVERSALLY APPLY
-        #TODO: THESE ARE EXAMPLES
     grepl("4 leaves at scanning", remark) ~ 4, # if "statement" in the remark column, then change to value outside brackets in bulk_nr_leaf_area
     grepl("4 leaves at scanning; 4 leaves at data entry", remark) ~ 4,
     grepl("small leaves; 4 leaves at scanning; 4 leaves at data entry", remark) ~ 4,
@@ -695,62 +771,6 @@ ggplot(data_long_thickness, #plotting drom long format
 
 ```
 
-# Correcting outliers
-
-```{r}
-#|label: Correcting outliers
-
-#Mean dry_mass for AGV1765 is almost 10x higher than other values, decided it's a typo, decision is to change the value by adding in an extra 0. Column: dry_mass and 0.01146g
-
-data <- data %>%
-mutate(
-  
-# adjust to be which ever trait has the issue
-dry_mass = if_else(
-  
-# list the specific envelope ID with the issue and then the specific  column  value of interest that was specified above 
-envelope_ID == "AGV1765" & dry_mass == 0.01146,
-
-# write the replacement value
-0.001146,
-
-dry_mass))
-
-# Add remark
-
-# Use mutate() and str_c() to add comments to a string
-data <- data %>%
-  
-# in the 'remark' or the 'comment' column, list the envelopeID from above
-mutate(remark = ifelse(envelope_ID %in% c("AGV1765"),
-                       
-# Add to the existing 'remark' column, a comment but ensure it starts with '; ' first so it's not running in with the prior column, but adds to the end. Here hte comment is 'dry mass error updated'
-# "; dry mass error, updated"
-
-str_c(coalesce(remark, ""), "; dry mass error, updated"), remark)) 
-
-########################################################
-
-#AMP6104 has 10x lower dry mass, comment says "6dp at dry mass", so decision to remove extra 0 behind the comma, dry_mass and 0.00020g
-
-
-data <- data %>%
-mutate(
-  
-dry_mass = if_else(
-  
-envelope_ID == "AMP6104" & dry_mass == 0.00020,
-0.0020,
-
-dry_mass))
-
-data <- data %>%
-  
-mutate(remark = ifelse(envelope_ID %in% c("AMP6104"),
-
-str_c(coalesce(remark, ""), "; dry mass error, updated"), remark)) 
-```
-
 # Calculate SLA and LDMC
 
 ```{r}
@@ -902,17 +922,18 @@ data_thickness_by <- data_thickness_by %>%
 
 ################### Not corrected ######################
 
-#Check leaf area scans bulk nr for: ACI2672 (has 3 leaves written in data file, but i suspect it's supposed to be 4 or 5)
-
-#Missing leaf area scans for: ADR7542, ACH0524,AIO5773
+#Missing leaf area scans for: ADR7542, ACH0524,AIO5773 
 
 #Check leaf thickness_2 for AKC8290, it is quite a high value compared to the other values of the bulk
 
 #Check leaf thickness_2 for AGR3236, quite high value
 
+
+
 ##################### Corrected #######################
 #Check mean dry mass for AGV1765, the value is almost 10x the other leaves of the plant
 #AMP6104 has 10x lower dry mass, comment says "6dp at dry mass", so might be an accidental extra 0 behind the comma
+#Check leaf area scans bulk nr for: ACI2672 (has 3 leaves written in data file, but i suspect it's supposed to be 4 or 5)
 
 ```
 
