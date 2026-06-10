@@ -20,6 +20,7 @@ library(readr) # Data importation functions
 library(stringr) # String and character text
 library(dplyr)
 library(ggplot2)
+library(ggridges) #Moving density plots
 library(rstatix)
 library(car)
 library(emmeans) #Post hoc testing
@@ -39,13 +40,18 @@ theme_set(theme_bw())
 #| message: false 
 
 # Read cleaned output file
-cleaned_data <- read_csv("/Users/maikenransve/Documents/Internship_DURIN/statistical analysis/data/clean_data/cleaned_data.csv")
+cleaned_data <- read_csv("/Users/maikenransve/Documents/Internship_DURIN/statistical analysis/data/clean_data/cleaned_data_copy.csv")
+
 
 
 #Creating a data frame
 cleaned_data <- as.data.frame(cleaned_data)
 cleaned_data$calluna_NIN_type <- factor(cleaned_data$calluna_NIN_type)
 cleaned_data$age_class <- factor(cleaned_data$age_class)
+
+#Add column of mean leaf thickness to cleaned data
+cleaned_data$leaf_thickness_mean <- rowMeans(cleaned_data[, c("leaf_thickness_1", "leaf_thickness_2", "leaf_thickness_3")], na.rm=TRUE)
+
 
 
 ```
@@ -84,6 +90,8 @@ AGE <- c("Pioneer" = "#087E8B","Building" = "#EB5461", "Mature" = "#884000")
 
 # Wet mass(g) visualizations
 
+-Wet mass appears decreasing from Pio to Mat for BH and FH, but for TH the wet mass for Mat has increased to the level of Pio after decreasing in BUI, test for significance between BUI: FH vs TH
+
 ```{r}
 #| label: Wet mass visualizations
 
@@ -96,10 +104,15 @@ df_sum_wet_mass <- cleaned_data %>%
             se_wet_mass = sd(wet_mass, na.rm=TRUE)/sqrt(n()), 
             n = n(), .groups = "drop")
 
-#Histograms
+#Histograms, general and NiN and age class specific
+
+ggplot(cleaned_data, aes(x = wet_mass)) + 
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lightblue", color = "black") +
+  geom_density(color = "red", linewidth = 1) 
 
 ggplot(cleaned_data, aes(x = wet_mass)) +
-  geom_histogram(bins = 30, color = "lightblue", fill = "midnightblue") +
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lavender", color = "black") +
+  geom_density(color = "red", linewidth = 0.8) +
   facet_grid(calluna_NiN_type ~ age_class) +
   labs(x = "Wet mass (g)", y = "Number of Calluna individuals")
 
@@ -162,8 +175,8 @@ ggplot(cleaned_data, aes(x = age_class, y = wet_mass, group = plant_nr)) +
 
 #Density Plot 
 
-ggplot(cleaned_data, aes(x = wet_mass, group=calluna_NiN_type, fill=calluna_NiN_type)) +
-  geom_density(alpha = 0.6) +
+ggplot(cleaned_data, aes(x = wet_mass, y =calluna_NiN_type, fill=calluna_NiN_type)) +
+  geom_density_ridges (alpha = 0.5)+ #To separate the density plots vertically
     facet_wrap(~age_class) +
   scale_color_manual(values = NIN) +
   scale_fill_manual(values = NIN) +
@@ -178,6 +191,8 @@ ggplot(cleaned_data, aes(x = wet_mass, group=calluna_NiN_type, fill=calluna_NiN_
 
 # Dry mass(g) visualizations
 
+-General histogram: appears slightly right-skewed
+
 ```{r}
 #| label: Dry mass visualization
 
@@ -189,10 +204,16 @@ df_sum_dry_mass <- cleaned_data %>%
             se_dry_mass = sd(dry_mass, na.rm=TRUE)/sqrt(n()),
             n = n(), .groups = "drop")
 
-# Histogram
+# Histogram, general and NiN and age class specific
+
+ggplot(cleaned_data, aes(x = dry_mass)) + 
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lightblue", color = "black") +
+  geom_density(color = "red", linewidth = 1)
+
 
 ggplot(cleaned_data, aes(x = dry_mass)) +
-  geom_histogram(bins = 30, color = "black", fill = "lavender") +
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lavender", color = "black") +
+  geom_density(color = "red", linewidth = 0.8) +
   facet_grid(calluna_NIN_type ~ age_class) +
   labs(x = "Dry mass (g)", y = "Number of Calluna individuals")
 
@@ -245,17 +266,20 @@ ggplot(df_sum_dry_mass, aes(x = calluna_NiN_type, y = mean_dry_mass, group = age
 
 #Density Plot 
 
-ggplot(cleaned_data, aes(x = dry_mass, group=calluna_NiN_type, fill=calluna_NiN_type)) +
-  geom_density(alpha = 0.6) +
+ggplot(cleaned_data, aes(x = dry_mass, y = calluna_NiN_type, fill=calluna_NiN_type)) +
+  geom_density_ridges(alpha = 0.5) +
   facet_wrap(~age_class) +
   scale_color_manual(values = NIN) +
   scale_fill_manual(values = NIN) +
   labs(title = "Density plot dry mass (g)", x = "Dry mass (g)") 
 
 
+
 ```
 
 # Height (cm)
+
+-does not appear normally distributed, histogram looks bimodal, but might be too few datapoints
 
 ```{r}
 #| label: Height visualizations
@@ -268,10 +292,15 @@ df_sum_height <- cleaned_data %>%
             se_height_cm = sd(height_cm, na.rm=TRUE)/sqrt(n()),
             n = n(), .groups = "drop")
 
-# Histogram
+# Histogram, general and NiN and age class specific
+
+ggplot(cleaned_data, aes(x = height_cm)) + 
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lightblue", color = "black") +
+  geom_density(color = "red", linewidth = 1)
 
 ggplot(cleaned_data, aes(x = height_cm)) +
-  geom_histogram(bins = 30, color = "black", fill = "violet") +
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lavender", color = "black") +
+  geom_density(color = "red", linewidth = 0.8) +
   facet_grid(calluna_NIN_type ~ age_class) +
   labs(x = "Height (cm)", y = "Number of Calluna individuals")
 
@@ -339,6 +368,8 @@ ggplot(cleaned_data, aes(x = height_cm, group=calluna_NiN_type, fill=calluna_NiN
 
 # Leaf thickness (mm) visualizations
 
+-General: appears normally distributed, a little right-skewed
+
 ```{r}
 #| label: Leaf thickness visualizations
 
@@ -358,12 +389,15 @@ df_sum_leaf_thickness <- data_thickness %>%
             se_leaf_thickness = sd(leaf_thickness, na.rm=TRUE)/sqrt(n()),
             n = n(), .groups = "drop")
 
-# Histogram
+# Histogram, general and NiN, age class specific
 
-
+ggplot(data_thickness, aes(x = leaf_thickness)) + 
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lightblue", color = "black") +
+  geom_density(color = "red", linewidth = 0.8) 
 
 ggplot(data_thickness, aes(x = leaf_thickness)) +
-  geom_histogram(bins = 30, color = "black", fill = "forestgreen") +
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lavender", color = "black") +
+  geom_density(color = "red", linewidth = 0.8) +
   facet_grid(calluna_NIN_type ~ age_class) +
   labs(x = "Leaf thickness (mm)", y = "Number of Calluna individuals")
 
@@ -433,6 +467,8 @@ ggplot(data_thickness, aes(x = leaf_thickness, group=calluna_NiN_type, fill=call
 
 # Leaf area (mm^2^) visualizations
 
+-general: appears right-skewed, but normally distributed
+
 ```{r}
 #| label: Leaf area visualizations
 
@@ -444,10 +480,15 @@ df_sum_leaf_area <- cleaned_data %>%
             se_leaf_area = sd(leaf_area, na.rm=TRUE)/sqrt(n()),
             n = n(), .groups = "drop")
 
-# Histogram
+# Histogram, general and NiN, age class specific
+
+ggplot(cleaned_data, aes(x = leaf_area)) + 
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lightblue", color = "black") +
+  geom_density(color = "red", linewidth = 0.8) 
 
 ggplot(cleaned_data, aes(x = leaf_area)) +
-  geom_histogram(bins = 30, color = "black", fill = "pink") +
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lavender", color = "black") +
+  geom_density(color = "red", linewidth = 0.8) +
   facet_grid(calluna_NIN_type ~ age_class) +
   labs(x = "Leaf area (mm^2))", y = "Number of Calluna individuals")
 
@@ -519,6 +560,8 @@ ggplot(cleaned_data, aes(x = leaf_area, group=calluna_NiN_type, fill=calluna_NiN
 
 # LDMC visualizations
 
+-General: appears normally distributed, but left-skewed
+
 ```{r}
 #| label: LDMC visualizations
 
@@ -533,8 +576,13 @@ df_sum_LDMC <- cleaned_data %>%
 
 # Histogram
 
+ggplot(cleaned_data, aes(x = LDMC)) + 
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lightblue", color = "black") +
+  geom_density(color = "red", linewidth = 0.8) 
+
 ggplot(cleaned_data, aes(x = LDMC)) +
-  geom_histogram(bins = 30, color = "black", fill = "orange") +
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lavender", color = "black") +
+  geom_density(color = "red", linewidth = 0.8) +
   facet_grid(calluna_NIN_type ~ age_class) +
   labs(x = "LDMC", y = "Number of Calluna individuals")
 
@@ -605,6 +653,8 @@ ggplot(cleaned_data, aes(x = LDMC, group=calluna_NiN_type, fill=calluna_NiN_type
 
 # SLA visualizations
 
+-General: appears right-skewed, Pio FH and Bui TH more scattered
+
 ```{r}
 #| label: SLA visualizations
 
@@ -619,8 +669,13 @@ df_sum_SLA <- cleaned_data %>%
 
 # Histogram
 
+ggplot(cleaned_data, aes(x = SLA)) + 
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lightblue", color = "black") +
+  geom_density(color = "red", linewidth = 0.8) 
+
 ggplot(cleaned_data, aes(x = SLA)) +
-  geom_histogram(bins = 30, color = "black", fill = "skyblue") +
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lavender", color = "black") +
+  geom_density(color = "red", linewidth = 0.8) +
   facet_grid(calluna_NIN_type ~ age_class) +
   theme_minimal() +
   labs(x = "SLA", y = "Number of Calluna individuals")
@@ -1055,11 +1110,13 @@ leveneTest(
 
 # Account for random effects and data clustering with lme4
 
-→ likely fixed effects with interactions: trait \~  NIN\*age class, effect of NiN type on trait also depends on effect of age class, and possibly plant sampling groups
+→ Fixed effects with interactions: trait \~  NIN\*age class, effect of NiN type on trait also depends on effect of age class, and possibly plant sampling groups
 
 -Plant ID (plant nr) is a grouping factor that should be used as random effects to account for non-independence. To account for “within-individual” grouping. These are nested groups with lower level units contained within higher levels
 
 → often use mixed-effects models as factors with few levels are fixed (NiN, age class) and factors with many levels are random (Plant 1-7 grouping)
+
+5 leaf bulks ⊂ 5 samples ⊂ Plant 1-7 ⊂ Age class × NiN type
 
 \
 -Linear mixed effects models, lme4 package, diff model, but same anova, summary etc. 1I plantID, not for height due to low replicate number
@@ -1070,8 +1127,6 @@ leveneTest(
 
 - **Random effects normality:** The random intercepts or slopes you estimate for your groups (like subjects or schools) should also follow a normal distribution.
 
--check if continuous variables need rescaling, when model says it is over-parameterized (random effect structure complex)
-
 ```{r}
 #| label: lme4 modelling
 
@@ -1080,9 +1135,10 @@ leveneTest(
 #fixed factors: NiN and age class
 #Grouping factor: Plant_nr nested in age class
 
+
 ###### Wet mass
 
-lme4_wet_mass <- lme4::lmer(wet_mass ~ age_class*calluna_NiN_type + (1|age_class/plant_nr), data=cleaned_data, na.action = na.exclude)
+lme4_wet_mass <- lme4::lmer(wet_mass ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
 
 summary(lme4_wet_mass)
 plot(lme4_wet_mass)
@@ -1091,9 +1147,6 @@ qq_wet_mass_lme4 <- qqnorm(residuals(lme4_wet_mass), main = "Q-Q Plot of lme Res
 qqline(residuals(lme4_wet_mass), col = "red")
 
 #Scale plot suggests mild heteroscedasticity with variance increasing slighlty with the mean
-#R message: Model is nearly unidentifiable: large eigenvalue ratio- Rescale variables? -But, might be due to mass values being so low
-
-
 #Checking unusual values that may be genuine biological outliers in their group or misplaced decimal points, unit conversion mistakes, impossible values, transcription errors
 #Find out if the same rows have unusual values for more traits, suggests real biological variation
 #Do the inspected plants have something in common? age class, NiN, same collTime etc. 
@@ -1104,7 +1157,7 @@ idx_wet_mass
 
 #Which plants drive the greatest residuals
 
-cleaned_data[idx_wet_mass,
+cleaned_data[idx_dry_mass,
              c("plant_nr",
                "wet_mass",
                "age_class",
@@ -1112,9 +1165,12 @@ cleaned_data[idx_wet_mass,
                "collection_time")]
 
 
+
+
+
 ###### Dry mass
 
-lme4_dry_mass <- lme4::lmer(dry_mass ~ age_class*calluna_NiN_type + (1|age_class/plant_nr), data=cleaned_data, na.action = na.exclude)
+lme4_dry_mass <- lme4::lmer(dry_mass ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
 
 summary(lme4_dry_mass)
 plot(lme4_dry_mass)
@@ -1123,8 +1179,6 @@ qq_dry_mass_lme4 <- qqnorm(residuals(lme4_dry_mass), main = "Q-Q Plot of Residua
 qqline(residuals(lme4_dry_mass), col = "red")
 
 #Scale plot suggests mild heteroscedasticity with variance increasing slighlty with the mean
-
-
 
 
 r_dry_mass <- resid(lme4_dry_mass, type = "pearson")
@@ -1147,9 +1201,9 @@ cleaned_data[idx_dry_mass,
 
 ###### Leaf area
 
-lme4_leaf_area <- lme4::lmer(leaf_area ~ age_class*calluna_NiN_type + (1|age_class/plant_nr), data=cleaned_data, na.action = na.exclude)
+lme4_leaf_area <- lme4::lmer(leaf_area ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
 
-summary(lme4_leaf_area).  #R message: Model is nearly unidentifiable: large eigenvalue ratio, might be due to outliers having smaller/larger values than rest of the data
+summary(lme4_leaf_area)  
 plot(lme4_leaf_area)
 
 qq_leaf_area_lme4 <- qqnorm(residuals(lme4_leaf_area), main = "Q-Q Plot of Residuals from lme of leaf area")
@@ -1174,9 +1228,9 @@ cleaned_data[idx_leaf_area,
 
 ###### Leaf thickness
 
-lme4_leaf_thickness <- lme4::lmer(leaf_thickness ~ age_class*calluna_NiN_type + (1|age_class/plant_nr), data=data_thickness, na.action = na.exclude)
+lme4_leaf_thickness <- lme4::lmer(leaf_thickness_mean ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
 
-summary(lme4_leaf_thickness) #R message: Model failed to converge: degenerate  Hessian with 1 negative eigenvalues -possibly means model is overfitted to the data or doesn't work well
+summary(lme4_leaf_thickness) 
 plot(lme4_leaf_thickness)
 
 qq_leaf_thickness_lme4 <- qqnorm(residuals(lme4_leaf_thickness), main = "Q-Q Plot of Residuals from lme of leaf thickness")
@@ -1197,11 +1251,37 @@ data_thickness[idx_leaf_thickness,
                "collection_time")]
 
 
+#Scale plot sorted by NiN type and age class, to see in which group residuals have greater variation
+
+data_pred_thickness <- data.frame(
+  predicted_leaf_thickness = predict(lme4_leaf_thickness),
+  residual_leaf_thickness  = residuals(lme4_leaf_thickness),
+  age_class     = cleaned_data$age_class,
+  plant_nr      = cleaned_data$plant_nr,
+  NiN_type      = cleaned_data$calluna_NiN_type
+)
+
+data_pred_thickness$Plant_ID <- interaction(
+  data_pred_thickness$age_class,
+  data_pred_thickness$plant_nr,
+  data_pred_thickness$NiN_type,
+  sep = "_"
+)
+
+ggplot(data_pred_thickness,
+       aes(x = predicted_leaf_thickness,
+           y = residual_leaf_thickness,
+           colour = NiN_type)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = 3)+
+  facet_wrap(~age_class)
+
+
 ###### LDMC
 
-lme4_LDMC <- lme4::lmer(LDMC ~ age_class*calluna_NiN_type + (1|age_class/plant_nr), data=cleaned_data, na.action = na.exclude)
+lme4_LDMC <- lme4::lmer(LDMC ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
 
-summary(lme4_LDMC)  #Model is nearly unidentifiable: large eigenvalue ratio- Rescale variables?
+summary(lme4_LDMC)  
 plot(lme4_LDMC)
 
 qq_LDMC_lme4 <- qqnorm(residuals(lme4_LDMC), main = "Q-Q Plot of Residuals from lme of LDMC")
@@ -1224,14 +1304,15 @@ cleaned_data[idx_LDMC,
 
 ###### SLA
 
-lme4_SLA <- lme4::lmer(SLA~ age_class*calluna_NiN_type + (1|age_class/plant_nr), data=cleaned_data, na.action = na.exclude)
+lme4_SLA <- lme4::lmer(SLA~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
 
-summary(lme4_SLA) #R message: Model failed to converge: degenerate  Hessian with 1 negative eigenvalues -possibly means model is overfitted to the data or doesn't work well
+summary(lme4_SLA) 
 
 #Scale plot to visually assess model
 plot(lme4_SLA)
 
-#Scale plot sorted by NiN type and age class, could do by individual plant ID too, but not sure what this plot contributes too
+#Scale plot suggests mild heteroscedasticity with slight fanning effect increasing with mean
+#Scale plot sorted by NiN type and age class, to see in which group residuals have greater variation
 
 data_pred_SLA <- data.frame(
   predicted_SLA = predict(lme4_SLA),
@@ -1281,22 +1362,7 @@ cleaned_data[idx_SLA,
 
 
 
-############## Does not yet work!
 
-
-#Estimating lme model with random intercepts and slopes, allowing for the effect of plant grouping to vary across groups, making model more flexible and accurate
-
-modg_SLA <- lme4::lmer(SLA~ age_class*calluna_NiN_type + (1+ age_class*calluna_NiN_type|age_class/plant_nr), data=cleaned_data, na.action = na.exclude)
-summary(modg_SLA)
-
-#Model fitting random intercepts and random slopes, but force their correlation to be zero without correlation between random intercept and slope effects, estimates variance of slope and intercepts
-#R message: boundary (singular) fit - indicates model is overfitted
-modr_SLA <- lme4::lmer(SLA~ age_class*calluna_NiN_type + (1+ age_class*calluna_NiN_type||age_class/plant_nr), data=cleaned_data, na.action = na.exclude)
-summary(modr_SLA)
-
-
-#Likelihood test ration with anova function to compare diff. models 
-anova(modr_SLA,modg_SLA)
 ```
 
 # ANOVA and Post-hoc testing
