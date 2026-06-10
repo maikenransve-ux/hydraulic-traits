@@ -135,7 +135,6 @@ raw_data <- raw_data %>%   # assuming you already created Month/date_day earlier
 
 # NEW Columns:
 # We need to match the DURIN data standards, which includes adding columns for location
-# TODO: Maiken, you need to update this for the GPS points where these were collected
 
 # Create new columns for coordinates 
 raw_data$latitude_N         <- as.numeric(NA)
@@ -180,8 +179,6 @@ raw_data$age_class == "Mature" & raw_data$calluna_NIN_type == "TH" ~ 5.096151)
 ```{r}
 #| label: import leaf area dataset tidy and match to trait dataset
 
-
-# TODO: Change this to your local repository where the excel output files are stored after calculating the leaf areas
 
 # Read in files
 data_base_r1 <- read_csv("/Users/maikenransve/Documents/Internship_DURIN/statistical analysis/data/raw_data/Leaf_scans/DURIN_Calluna_leaf_area_Hydraulics_R1.csv", show_col_types = FALSE) |>
@@ -378,7 +375,7 @@ unique(data$remark)
 ```{r}
 #|label: Correcting outliers
 
-#Mean dry_mass for AGV1765 is almost 10x higher than other values, decided it's a typo, decision is to change the value by adding in an extra 0. Column: dry_mass and 0.01146g
+#Mean dry_mass for AGV1765 is almost 10x higher than other values, has 6dp in datasheet and 4dp on envelope, decided it's a typo, decision is to change the value by adding in an extra 0. Column: dry_mass and 0.057300g
 
 data <- data %>%
   mutate(
@@ -386,11 +383,11 @@ data <- data %>%
     # adjust to be which ever trait has the issue
     dry_mass = if_else(
       
-      # list the specific envelope ID with the issue and then the specific  column  value of interest that was specified above 
-      envelope_ID == "AGV1765" & dry_mass == 0.01146,
+      # list the specific envelope ID with the issue and then the specific column value of interest that was specified above 
+      envelope_ID == "AGV1765" & dry_mass == 0.057300,
       
       # write the replacement value
-      0.001146,
+      0.00573,
       
       dry_mass))
 
@@ -409,7 +406,7 @@ data <- data %>%
 
 ########################################################
 
-#AMP6104 has 10x lower dry mass, comment says "6dp at dry mass", so decision to remove extra 0 behind the comma, dry_mass and 0.00020g
+#AMP6104 has 10x lower dry mass, comment says "6dp at dry mass", so decision to remove extra 0 behind the comma, dry_mass and 0.001019g
 
 
 data <- data %>%
@@ -417,8 +414,8 @@ data <- data %>%
     
     dry_mass = if_else(
       
-      envelope_ID == "AMP6104" & dry_mass == 0.00020,
-      0.00200,
+      envelope_ID == "AMP6104" & dry_mass == 0.001019,
+      0.01019,
       
       dry_mass))
 
@@ -429,9 +426,8 @@ data <- data %>%
                          str_c(coalesce(remark, ""), "; dry mass error, updated"), remark)) 
 
 
-
 ########################################################
-#ACI2672 has 3 leaves as bulk nr written in data file and on actual envelope, but on the leaf area scans there are 5 leaves, later it is only found 4 leaves at data cleaning
+#ACI2672 has 3 leaves as bulk nr written in data file and on actual envelope, but on the leaf area scans there are 5 leaves, later it is only found 4 leaves at data cleaning, bulk nr and 3
 
 data <- data %>%
   mutate(
@@ -448,6 +444,41 @@ data <- data %>%
   mutate(remark = ifelse(envelope_ID %in% c("ACI2672"),
                          
                          str_c(coalesce(remark, ""), "; bulk nr error, updated"), remark)) 
+
+######################################################
+#AGR3236 has a leaf thickness of 0.780mm written in data sheet, but on envelope it is actually 0.180mm, leaf thickness and 0.780mm
+
+
+data <- data %>%
+  mutate(
+    
+    leaf_thickness_2 = if_else(
+      
+      envelope_ID == "AGR3236" & leaf_thickness_2 == 0.780,
+      0.180,
+      
+      leaf_thickness_2))
+
+data <- data %>%
+  
+  mutate(remark = ifelse(envelope_ID %in% c("AGR3236"),
+                         
+                         str_c(coalesce(remark, ""), "; leaf thickness error, updated"), remark)) 
+
+######################################################
+#AKC8290 has a leaf thickness 2 value that is an outlier, 0.956mm with a z-score of 6.82 and will be changed to NA
+
+
+data <- data %>%
+  mutate(
+    leaf_thickness_2 = if_else(
+      envelope_ID == "AKC8290" & leaf_thickness_2 == 0.956,
+      NA,
+      leaf_thickness_2))
+
+data <- data %>%
+  mutate(remark = ifelse(envelope_ID %in% c("AKC8290"),
+                         str_c(coalesce(remark, ""), "; leaf thickness outlier, omitted"), remark)) 
 ```
 
 # Calculate per leaf trait values
@@ -478,7 +509,6 @@ data$bulk_nr_wet_mass <- data$bulk_nr_leaves # Create a new column 'bulk_nr_wet_
 #data <- data %>%
 #  mutate(bulk_nr_wet_mass = case_when(
     
-#        #TODO: THESE ARE EXAMPLES
     
 #   grepl("3 leaves at wet mass", remark) ~ 3, #TODO: Update to match EIRIK's sampling strategy and the comments from above
     # Add more statements like above if there are more relevant comments
@@ -718,6 +748,32 @@ ggplot(data_long_thickness, #plotting drom long format
     title = "Leaf thickness replicates by plant, age class and NiN type"
   )
 
+#Check if BUI FH 3, leaf thickness 2, value of 0.956mm is more than 3 SDs from mean
+
+#Creating a unique identifier
+data$plant_id <- interaction(
+  data$calluna_NiN_type,
+  data$age_class,
+  data$plant_nr
+)
+
+
+data$leaf_thickness_mean <- rowMeans(data[c("leaf_thickness_1", "leaf_thickness_2", "leaf_thickness_3")], na.rm=TRUE)
+
+mean_thickness_per_plant <- data %>%
+  group_by(plant_id) %>%
+  summarise(
+    plant_mean = mean(leaf_thickness_mean, na.rm = TRUE),
+    plant_sd   = sd(leaf_thickness_mean, na.rm = TRUE),
+    n = n()
+  )
+
+#Z score formula
+
+z <-(0.956-0.4725333)/0.07085337
+z
+
+#As z-score is 6.82, the leaf thickness 2 for envelope AKC8290 will be omitted from the cleaned script
 ```
 
 ```{r}
