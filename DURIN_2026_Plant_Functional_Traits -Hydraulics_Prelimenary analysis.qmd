@@ -118,7 +118,7 @@ ggplot(cleaned_data, aes(x = wet_mass)) +
 
 
 
-#Boxplot
+#Boxplot to check overlapping error bars and data medians
 
 ggplot(cleaned_data, aes(x = age_class, y = wet_mass, fill = age_class)) +
   geom_boxplot(alpha = 0.6, outlier.shape = NA) +
@@ -128,7 +128,7 @@ ggplot(cleaned_data, aes(x = age_class, y = wet_mass, fill = age_class)) +
   scale_fill_manual(values = AGE) +
   labs(x = "Age class", y = "Wet mass (g)")
 
-#Violin plot
+#Violin plot to check density of outliers
 
 ggplot(cleaned_data, aes(x = age_class, y = wet_mass, fill = age_class)) +
   geom_violin(trim = FALSE, alpha = 0.6) +
@@ -193,6 +193,10 @@ ggplot(cleaned_data, aes(x = wet_mass, y =calluna_NiN_type, fill=calluna_NiN_typ
 
 -General histogram: appears slightly right-skewed
 
+-similar trend to wet mass, but looks like in FH the BUI dry mass increases, then declines for Mat and for TH it decreases for BUI, then increases to Mat
+
+\
+
 ```{r}
 #| label: Dry mass visualization
 
@@ -227,6 +231,14 @@ ggplot(cleaned_data, aes(x = age_class, y = dry_mass, fill = age_class)) +
   scale_color_manual(values = AGE) +
   scale_fill_manual(values = AGE) +
   labs(x = "Age class", y = "Dry mass (g)")
+
+ggplot(cleaned_data, aes(x = calluna_NiN_type, y = dry_mass, fill = calluna_NiN_type)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, size = 1, alpha = 0.6) +
+  facet_wrap(~ age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(x = "NiN type", y = "Dry mass (g)")
 
 #Violin plot
 
@@ -280,6 +292,10 @@ ggplot(cleaned_data, aes(x = dry_mass, y = calluna_NiN_type, fill=calluna_NiN_ty
 # Height (cm)
 
 -does not appear normally distributed, histogram looks bimodal, but might be too few datapoints
+
+-For height, more variation in MAT, but TH shows a different trend than FH and BH again. The BUI for TH is acting differently that the other nature types
+
+-Plants generally taller in BH and FH, might be significant between PIO: BH vs FH and TH and for MAT: BH, FH vs TH
 
 ```{r}
 #| label: Height visualizations
@@ -356,8 +372,8 @@ ggplot(df_sum_height, aes(x = calluna_NiN_type, y = mean_height_cm, group = age_
   
 #Density Plot 
 
-ggplot(cleaned_data, aes(x = height_cm, group=calluna_NiN_type, fill=calluna_NiN_type)) +
-  geom_density(alpha = 0.6) +
+ggplot(cleaned_data, aes(x = height_cm, y=calluna_NiN_type, fill=calluna_NiN_type)) +
+  geom_density_ridges(alpha = 0.5) +
   facet_wrap(~age_class) +
   scale_color_manual(values = NIN) +
   scale_fill_manual(values = NIN) +
@@ -369,6 +385,12 @@ ggplot(cleaned_data, aes(x = height_cm, group=calluna_NiN_type, fill=calluna_NiN
 # Leaf thickness (mm) visualizations
 
 -General: appears normally distributed, a little right-skewed
+
+-leaf thickness quite overlapping, might be significant between BUI (consider outliers here are pulling the mean)
+
+-thickness highest for PIO in TH, lowest in FH (supports an initial conservative strategy), in BUI thickest leaves in BH, thinnest in TH (more acquisitive), for MAT back to thicker leaves in BH, TH and thinner in FH (conservative)
+
+\
 
 ```{r}
 #| label: Leaf thickness visualizations
@@ -415,6 +437,15 @@ ggplot(data_thickness, aes(x = age_class, y = leaf_thickness, fill = age_class))
   scale_fill_manual(values = AGE) +
   labs(x = "Age class", y = "Leaf thickness (mm)")
 
+
+ggplot(data_thickness, aes(x = calluna_NiN_type, y = leaf_thickness, fill = calluna_NiN_type)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, size = 1, alpha = 0.6) +
+  facet_wrap(~ age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(x = "NiN type", y = "Leaf thickness (mm)")
+
 # violin plot
 
 ggplot(data_thickness, aes(x = age_class, y = leaf_thickness, fill = age_class)) +
@@ -455,8 +486,8 @@ ggplot(df_sum_leaf_thickness, aes(x = calluna_NiN_type, y = mean_leaf_thickness,
 
 #Density Plot 
 
-ggplot(data_thickness, aes(x = leaf_thickness, group=calluna_NiN_type, fill=calluna_NiN_type)) +
-  geom_density(alpha = 0.6) +
+ggplot(data_thickness, aes(x = leaf_thickness, y=calluna_NiN_type, fill=calluna_NiN_type)) +
+  geom_density_ridges(alpha = 0.5) +
   facet_wrap(~age_class) +
   scale_color_manual(values = NIN) +
   scale_fill_manual(values = NIN) +
@@ -468,6 +499,10 @@ ggplot(data_thickness, aes(x = leaf_thickness, group=calluna_NiN_type, fill=call
 # Leaf area (mm^2^) visualizations
 
 -general: appears right-skewed, but normally distributed
+
+-leaf area for TH vs FH in PIO and BUI might be significant, generally greater leaf area from PIO→MAT (acquisitive), different trend in TH again. Greater variation in leaf area between age classes in FH
+
+\
 
 ```{r}
 #| label: Leaf area visualizations
@@ -503,6 +538,14 @@ ggplot(cleaned_data, aes(x = age_class, y = leaf_area, fill = age_class)) +
   scale_color_manual(values = AGE) +
   scale_fill_manual(values = AGE) +
   labs(title = "Leaf area of Calluna in different age classes and NiN types", x = "Age class", y = "Leaf area (mm^2)")
+
+ggplot(cleaned_data, aes(x = calluna_NiN_type, y = leaf_area, fill = calluna_NiN_type)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, size = 1, alpha = 0.6) +
+  facet_wrap(~ age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(x = "NiN type", y = "Leaf area (mm^2)")
 
 # violin plot
 
@@ -549,8 +592,8 @@ ggplot(df_sum_leaf_area, aes(x = calluna_NiN_type, y = mean_leaf_area, group = a
 
 #Density Plot 
 
-ggplot(cleaned_data, aes(x = leaf_area, group=calluna_NiN_type, fill=calluna_NiN_type)) +
-  geom_density(alpha = 0.6) +
+ggplot(cleaned_data, aes(x = leaf_area, y=calluna_NiN_type, fill=calluna_NiN_type)) +
+  geom_density_ridges(alpha = 0.5) +
   facet_wrap(~age_class) +
   scale_color_manual(values = NIN) +
   scale_fill_manual(values = NIN) +
@@ -561,6 +604,10 @@ ggplot(cleaned_data, aes(x = leaf_area, group=calluna_NiN_type, fill=calluna_NiN
 # LDMC visualizations
 
 -General: appears normally distributed, but left-skewed
+
+-Slightly increasing LDMC trend from Pio to Mat (plants become more conservative with age), FH shows a different trend with BUI having the highest LDMC. test significance PIO vs BUI in FH, and BUI: FH vs TH vs BH, FH as the highest LDMC and BH the lowest, TH in the middle (might be overlapping)
+
+\
 
 ```{r}
 #| label: LDMC visualizations
@@ -596,6 +643,14 @@ ggplot(cleaned_data, aes(x = age_class, y = LDMC, fill = age_class)) +
   scale_color_manual(values = AGE) +
   scale_fill_manual(values = AGE) +
   labs(x = "Age class", y = "LDMC")
+
+ggplot(cleaned_data, aes(x = calluna_NiN_type, y = LDMC, fill = calluna_NiN_type)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, size = 1, alpha = 0.6) +
+  facet_wrap(~ age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(x = "NiN type", y = "LDMC")
 
 # violin plot
 
@@ -639,8 +694,8 @@ ggplot(df_sum_LDMC, aes(x = calluna_NiN_type, y = mean_LDMC, group = age_class, 
 
 #Density Plot 
 
-ggplot(cleaned_data, aes(x = LDMC, group=calluna_NiN_type, fill=calluna_NiN_type)) +
-  geom_density(alpha = 0.6) +
+ggplot(cleaned_data, aes(x = LDMC, y=calluna_NiN_type, fill=calluna_NiN_type)) +
+  geom_density_ridges(alpha = 0.5) +
   facet_wrap(~age_class) +
   scale_color_manual(values = NIN) +
   scale_fill_manual(values = NIN) +
@@ -654,6 +709,8 @@ ggplot(cleaned_data, aes(x = LDMC, group=calluna_NiN_type, fill=calluna_NiN_type
 # SLA visualizations
 
 -General: appears right-skewed, Pio FH and Bui TH more scattered
+
+-SLA generally highest for PIO, decreasing to MAT, except BUI in TH. SLA highest in FH for PIO, but quite similar in BH and TH for BUI and MAT. test significance in FH: Pio vs Bui and Mat, and for PIO FH vs TH vs BH
 
 ```{r}
 #| label: SLA visualizations
@@ -754,7 +811,7 @@ ggplot(df_sum_SLA, aes(x = calluna_NiN_type, y = mean_SLA, group = age_class, co
 #Density Plot 
 
 ggplot(cleaned_data, aes(x = SLA, group=calluna_NiN_type, fill=calluna_NiN_type)) +
-  geom_density(alpha = 0.6) +
+  geom_density_ridges(alpha = 0.5) +
   facet_wrap(~age_class) +
   scale_color_manual(values = NIN) +
   scale_fill_manual(values = NIN) +
@@ -1157,7 +1214,7 @@ idx_wet_mass
 
 #Which plants drive the greatest residuals
 
-cleaned_data[idx_dry_mass,
+cleaned_data[idx_wet_mass,
              c("plant_nr",
                "wet_mass",
                "age_class",
@@ -1365,11 +1422,13 @@ cleaned_data[idx_SLA,
 
 ```
 
-# ANOVA and Post-hoc testing
+# lm ANOVA and Post-hoc testing
 
 All results show significance between age class, NiN and the interaction of the two with ANOVA
 
 Post hoc test with more than two levels, emmeans package
+
+TO DO: find out if emmeans is a suitable post-hoc and which values reject the null hypothesis
 
 ```{r}
 #| label: ANOVA
@@ -1428,6 +1487,63 @@ anova(lm_SLA)
 
 (emmeans_SLA<- emmeans(lm_SLA, ~ age_class * calluna_NiN_type))
 pairs(emmeans_SLA) 
+```
+
+# lme ANOVA and post-hoc testing
+
+TO DO: find out if this is the proper format for testing with lme4 model, does not give a Pr value
+
+```{r}
+#| label: ANOVA
+
+#Wet mass
+
+anova(lme4_wet_mass)
+
+(emmeans_lme4_wet_mass<- emmeans(lme4_wet_mass, ~ age_class * calluna_NiN_type))
+pairs(emmeans_lme4_wet_mass)
+
+plot(emmeans_lme4_wet_mass)
+
+#Dry mass
+
+anova(lme4_dry_mass)
+
+(emmeans_lme4_dry_mass<- emmeans(lme4_dry_mass, ~ age_class * calluna_NiN_type))
+pairs(emmeans_lme4_dry_mass)
+
+plot(emmeans_dry_mass)
+
+
+#Leaf area
+
+anova(lme4_leaf_area)
+
+(emmeans_lme4_leaf_area<- emmeans(lme4_leaf_area, ~ age_class * calluna_NiN_type))
+pairs(emmeans_lme4_leaf_area)
+
+#Leaf thickness
+
+anova(lme4_leaf_thickness)
+
+(emmeans_lme4_leaf_thickness<- emmeans(lme4_leaf_thickness, ~ age_class * calluna_NiN_type))
+pairs(emmeans_lme4_leaf_thickness)
+
+#LDMC
+
+anova(lme4_LDMC)
+
+(emmeans_lme4_LDMC<- emmeans(lme4_LDMC, ~ age_class * calluna_NiN_type))
+pairs(emmeans_lme4_LDMC) 
+
+
+
+#SLA
+
+anova(lme4_SLA)
+
+(emmeans_lme4_SLA<- emmeans(lme4_SLA, ~ age_class * calluna_NiN_type))
+pairs(emmeans_lme4_SLA) 
 ```
 
 # Data transformation
