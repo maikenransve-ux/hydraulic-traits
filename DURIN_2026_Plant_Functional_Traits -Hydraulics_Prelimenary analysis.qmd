@@ -7,8 +7,6 @@ editor: visual
 
 # Importing data
 
-Have to see which packages are needed later and add them.
-
 ```{r}
 #| label: load libraries
 
@@ -27,6 +25,8 @@ library(emmeans) #Post hoc testing
 library(afex) #linear mixed models
 library(lme4) #linear mixed models
 library(sdamr) #linear mixed models
+library(lmerTest)
+
 
 
 theme_set(theme_bw())
@@ -296,6 +296,8 @@ ggplot(cleaned_data, aes(x = dry_mass, y = calluna_NiN_type, fill=calluna_NiN_ty
 -For height, more variation in MAT, but TH shows a different trend than FH and BH again. The BUI for TH is acting differently that the other nature types
 
 -Plants generally taller in BH and FH, might be significant between PIO: BH vs FH and TH and for MAT: BH, FH vs TH
+
+-From the boxplot, the variances across age classes have quite a different scatter, MAT in BH and FH have a lot more variation than PIO i.e
 
 ```{r}
 #| label: Height visualizations
@@ -810,7 +812,7 @@ ggplot(df_sum_SLA, aes(x = calluna_NiN_type, y = mean_SLA, group = age_class, co
 
 #Density Plot 
 
-ggplot(cleaned_data, aes(x = SLA, group=calluna_NiN_type, fill=calluna_NiN_type)) +
+ggplot(cleaned_data, aes(x = SLA, y=calluna_NiN_type, fill=calluna_NiN_type)) +
   geom_density_ridges(alpha = 0.5) +
   facet_wrap(~age_class) +
   scale_color_manual(values = NIN) +
@@ -834,6 +836,8 @@ The dependent variable should be approximately normally distributed within each 
 -Shapiro-Wilk test reveals non-normality for the linear model, but since we have a large data set n\>50, the test is too sensitive and results might be a false negative, leading to rejection of normal data, when it is in reality fine to use.
 
 -Both ANOVA and mixed models are robust to large datasets when it comes to deviating slightly from normality
+
+-Plot for height is slightly heavy tailed and deviates slightly from the qqline, indicating data contains a few more extreme values than would be expected from a normal distribution. Scale plot also shows variance increases with fitted values
 
 ```{r}
 #| label: testing age class and NiN type for normality with shapiro-wilk, qq plots, and residuals
@@ -1089,22 +1093,6 @@ qqline(residuals(lm_LDMC), col = "red")
 scale_LDMC <- plot(lm_LDMC, which = 3, add.smooth = TRUE)
 
 
-
-
-
-
-#scatter plot --does not work yet
-
-scatter_LDMC<-ggplot(cleaned_data, aes(x = calluna_NiN_type, y = age_class)) +
-  geom_point() +
-  ggtitle("test") +
-  geom_abline(slope = slope_LDMC, intercept = intercept_LDMC, color="red", size=1)
- 
-
-
-# Combine scatter plot and Q-Q plot using patchwork, could make a nice overview
-library(patchwork)
-qq_LDMC + scatter_LDMC
 ```
 
 # Levenetest for checking variance -not so relevant
@@ -1165,7 +1153,7 @@ leveneTest(
 )
 ```
 
-# Account for random effects and data clustering with lme4
+# Account for random effects and data clustering with lmer
 
 → Fixed effects with interactions: trait \~  NIN\*age class, effect of NiN type on trait also depends on effect of age class, and possibly plant sampling groups
 
@@ -1195,10 +1183,10 @@ leveneTest(
 
 ###### Wet mass
 
-lme4_wet_mass <- lme4::lmer(wet_mass ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
+lme4_wet_mass <- lmerTest::lmer(wet_mass ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
 
 summary(lme4_wet_mass)
-plot(lme4_wet_mass)
+plot(lme4_wet_mass, which=2)
 
 qq_wet_mass_lme4 <- qqnorm(residuals(lme4_wet_mass), main = "Q-Q Plot of lme Residuals of Wet mass")
 qqline(residuals(lme4_wet_mass), col = "red")
@@ -1227,7 +1215,7 @@ cleaned_data[idx_wet_mass,
 
 ###### Dry mass
 
-lme4_dry_mass <- lme4::lmer(dry_mass ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
+lme4_dry_mass <- lmerTest::lmer(dry_mass ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
 
 summary(lme4_dry_mass)
 plot(lme4_dry_mass)
@@ -1258,7 +1246,7 @@ cleaned_data[idx_dry_mass,
 
 ###### Leaf area
 
-lme4_leaf_area <- lme4::lmer(leaf_area ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
+lme4_leaf_area <- lmerTest::lmer(leaf_area ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
 
 summary(lme4_leaf_area)  
 plot(lme4_leaf_area)
@@ -1285,7 +1273,7 @@ cleaned_data[idx_leaf_area,
 
 ###### Leaf thickness
 
-lme4_leaf_thickness <- lme4::lmer(leaf_thickness_mean ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
+lme4_leaf_thickness <- lmerTest::lmer(leaf_thickness_mean ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
 
 summary(lme4_leaf_thickness) 
 plot(lme4_leaf_thickness)
@@ -1336,7 +1324,7 @@ ggplot(data_pred_thickness,
 
 ###### LDMC
 
-lme4_LDMC <- lme4::lmer(LDMC ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
+lme4_LDMC <- lmerTest::lmer(LDMC ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
 
 summary(lme4_LDMC)  
 plot(lme4_LDMC)
@@ -1361,7 +1349,7 @@ cleaned_data[idx_LDMC,
 
 ###### SLA
 
-lme4_SLA <- lme4::lmer(SLA~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
+lme4_SLA <- lmerTest::lmer(SLA~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
 
 summary(lme4_SLA) 
 
@@ -1369,30 +1357,6 @@ summary(lme4_SLA)
 plot(lme4_SLA)
 
 #Scale plot suggests mild heteroscedasticity with slight fanning effect increasing with mean
-#Scale plot sorted by NiN type and age class, to see in which group residuals have greater variation
-
-data_pred_SLA <- data.frame(
-  predicted_SLA = predict(lme4_SLA),
-  residual_SLA  = residuals(lme4_SLA),
-  age_class     = cleaned_data$age_class,
-  plant_nr      = cleaned_data$plant_nr,
-  NiN_type      = cleaned_data$calluna_NiN_type
-)
-
-data_pred_SLA$Plant_ID <- interaction(
-  data_pred_SLA$age_class,
-  data_pred_SLA$plant_nr,
-  data_pred_SLA$NiN_type,
-  sep = "_"
-)
-
-ggplot(data_pred_SLA,
-       aes(x = predicted_SLA,
-           y = residual_SLA,
-           colour = NiN_type)) +
-  geom_point() +
-  geom_hline(yintercept = 0, linetype = 3)+
-  facet_wrap(~age_class)
 
 
 #Histogram of residuals, check for normal distribution
@@ -1403,7 +1367,7 @@ ggplot(data_pred_SLA,aes(x=residual_SLA)) + geom_histogram(bins=20, color="black
 qq_SLA_lme4 <- qqnorm(residuals(lme4_SLA), main = "Q-Q Plot of Residuals from lme of SLA")
 qqline(residuals(lme4_SLA), col = "red")
 
-r_SLA <- resid(lme4_SLA, type = "pearson")
+r_SLA <- residuals(lme4_SLA, type = "pearson")
 idx_SLA <- which(abs(r_SLA) > 2 * sd(r_SLA))
 idx_SLA
 
@@ -1419,164 +1383,326 @@ cleaned_data[idx_SLA,
 
 
 
-
 ```
 
-# lm ANOVA and Post-hoc testing
+# lm ANOVA and Post-hoc -only for height
 
-All results show significance between age class, NiN and the interaction of the two with ANOVA
+Null hypothesis: there are no significant differences between the interaction of age class and NiN type on given trait
+
+p-value should be lower than 0.05 to reject the H0
 
 Post hoc test with more than two levels, emmeans package
 
-TO DO: find out if emmeans is a suitable post-hoc and which values reject the null hypothesis
+Interpret emmeans: emmean column means the adjusted average for each trait in the same units
+
+t-ratio tells you how many Standard Errors (SE) your group ratio is away from the null hypothesis, **Significant:** A t-ratio **greater than 2** or **less than -2** is generally statistically significant (assuming a standard 5% error rate).
+
+**Not Significant:** A t-ratio close to 0 (between -2 and 2) means the groups are too similar to be sure of any real difference
+
+estimate column: means the average difference in i.e for height in cm between groups
 
 ```{r}
 #| label: ANOVA
 
 #Wet mass
 
-anova(lm_wet_mass)
+#```{r, results='asis'}
+#cat("######## Wet Mass (g)\n\n")
 
-(emmeans_wet_mass<- emmeans(lm_wet_mass, ~ age_class * calluna_NiN_type))
-pairs(emmeans_wet_mass)
+#anova(lm_wet_mass)
 
-plot(emmeans_wet_mass)
+#(emmeans_wet_mass<- emmeans(lm_wet_mass, ~ age_class * calluna_NiN_type))
+#pairs(emmeans_wet_mass)
+
+#plot(emmeans_wet_mass)
 
 #Dry mass
 
-anova(lm_dry_mass)
+#```{r, results='asis'}
+#cat("######## Dry Mass (g)\n\n")
 
-(emmeans_dry_mass<- emmeans(lm_dry_mass, ~ age_class * calluna_NiN_type))
-pairs(emmeans_dry_mass)
+#anova(lm_dry_mass)
 
-plot(emmeans_dry_mass)
+#(emmeans_dry_mass<- emmeans(lm_dry_mass, ~ age_class * calluna_NiN_type))
+#pairs(emmeans_dry_mass)
+
+
 
 #Height
+
+cat("######## Height (cm)\n\n")
 
 anova(lm_height_cm)
 
 (emmeans_height_cm<- emmeans(lm_height_cm, ~ age_class * calluna_NiN_type))
-pairs(emmeans_height_cm)
+pairs(emmeans_height_cm, simple="each")
+
+
 
 #Leaf area
 
-anova(lm_leaf_area)
+#```{r, results='asis'}
+#cat("######## Leaf area (mm^2)\n\n")
 
-(emmeans_leaf_area<- emmeans(lm_leaf_area, ~ age_class * calluna_NiN_type))
-pairs(emmeans_leaf_area)
+#anova(lm_leaf_area)
+
+#(emmeans_leaf_area<- emmeans(lm_leaf_area, ~ age_class * calluna_NiN_type))
+#pairs(emmeans_leaf_area)
 
 #Leaf thickness
 
-anova(lm_leaf_thickness)
+#```{r, results='asis'}
+#cat("######## Leaf thickness (mm)\n\n")
 
-(emmeans_leaf_thickness<- emmeans(lm_leaf_thickness, ~ age_class * calluna_NiN_type))
-pairs(emmeans_leaf_thickness)
+#anova(lm_leaf_thickness)
+
+#(emmeans_leaf_thickness<- emmeans(lm_leaf_thickness, ~ age_class * calluna_NiN_type))
+#pairs(emmeans_leaf_thickness)
 
 #LDMC
 
-anova(lm_LDMC)
+#```{r, results='asis'}
+#cat("######## LDMC\n\n")
 
-(emmeans_LDMC<- emmeans(lm_LDMC, ~ age_class * calluna_NiN_type))
-pairs(emmeans_LDMC) 
+#anova(lm_LDMC)
+
+#(emmeans_LDMC<- emmeans(lm_LDMC, ~ age_class * calluna_NiN_type))
+#pairs(emmeans_LDMC) 
 
 
 
 #SLA
 
-anova(lm_SLA)
+#```{r, results='asis'}
+#cat("######## SLA\n\n")
 
-(emmeans_SLA<- emmeans(lm_SLA, ~ age_class * calluna_NiN_type))
-pairs(emmeans_SLA) 
+#anova(lm_SLA)
+
+#(emmeans_SLA<- emmeans(lm_SLA, ~ age_class * calluna_NiN_type))
+#pairs(emmeans_SLA) 
 ```
 
-# lme ANOVA and post-hoc testing
+# lmer ANOVA and post-hoc testing
 
-TO DO: find out if this is the proper format for testing with lme4 model, does not give a Pr value
+TO DO: find out if this is the proper format for testing with lme4 model, anova does not give a Pr value as the degrees of freedom in a mixed model are. ot accurate, so the p-value cannot be precise enough
 
 ```{r}
 #| label: ANOVA
 
 #Wet mass
 
+cat("######## Wet Mass (g)\n\n")
+
 anova(lme4_wet_mass)
 
 (emmeans_lme4_wet_mass<- emmeans(lme4_wet_mass, ~ age_class * calluna_NiN_type))
-pairs(emmeans_lme4_wet_mass)
+pairs(emmeans_lme4_wet_mass, simple="each")
 
 plot(emmeans_lme4_wet_mass)
 
 #Dry mass
 
+cat("######## Dry Mass (g)\n\n")
+
 anova(lme4_dry_mass)
 
 (emmeans_lme4_dry_mass<- emmeans(lme4_dry_mass, ~ age_class * calluna_NiN_type))
-pairs(emmeans_lme4_dry_mass)
+pairs(emmeans_lme4_dry_mass, simple="each")
 
 plot(emmeans_dry_mass)
 
 
 #Leaf area
 
+cat("######## Leaf area (mm^2)\n\n")
+
 anova(lme4_leaf_area)
 
 (emmeans_lme4_leaf_area<- emmeans(lme4_leaf_area, ~ age_class * calluna_NiN_type))
-pairs(emmeans_lme4_leaf_area)
+pairs(emmeans_lme4_leaf_area, simple="each")
 
 #Leaf thickness
+
+cat("######## Leaf thickness (mm)\n\n")
 
 anova(lme4_leaf_thickness)
 
 (emmeans_lme4_leaf_thickness<- emmeans(lme4_leaf_thickness, ~ age_class * calluna_NiN_type))
-pairs(emmeans_lme4_leaf_thickness)
+pairs(emmeans_lme4_leaf_thickness, simple="each")
 
 #LDMC
+
+cat("######## LDMC\n\n")
 
 anova(lme4_LDMC)
 
 (emmeans_lme4_LDMC<- emmeans(lme4_LDMC, ~ age_class * calluna_NiN_type))
-pairs(emmeans_lme4_LDMC) 
+pairs(emmeans_lme4_LDMC, simple="each") 
 
 
 
 #SLA
 
+cat("######## SLA\n\n")
+
 anova(lme4_SLA)
 
 (emmeans_lme4_SLA<- emmeans(lme4_SLA, ~ age_class * calluna_NiN_type))
-pairs(emmeans_lme4_SLA) 
+pairs(emmeans_lme4_SLA, simple="each") 
 ```
 
 # Data transformation
 
 **-data often natural log transformed and scaled** to fairly compare across traits, we can statistically contrast the different traits side-by-side: makes skewed distributions more normal by pulling extreme outliers inward; allows interpretation in multiplicative steps (1x increase → 10x increase etc.); prevents heteroscedasticity (data artificially widening as mean increases); when comparing multiple traits, scaling makes sure a change of one unit in one trait means the same across all variables
 
+-Never use *p*-values to judge the success of a transformation! We use diagnostic plots to make that assessment. What we hope is that we can transform the response variable so that it conforms, at least approximately, to the assumptions of the statistical model
+
 -transform traits individually and do back-transformation
+
+-Plot for height is slightly heavy tailed and deviates slightly from the qqline, indicating data contains a few more extreme values than would be expected from a normal distribution. Scale plot also shows variance increases with fitted values —\> try transformation
 
 ```{r}
 #| label: data transformation
 
 #So far, it looks like it is only necessary to do for the height data
 
+height_log_mod <- lm(log(height_cm) ~ age_class*calluna_NiN_type, data = cleaned_data)
+summary(height_log_mod)
+
+plot(height_log_mod, which = 2) #new probability plot looks a little better, but not perfect, tails are outside
+plot(height_log_mod, which = 3) #Constant variation assumption fulfilled
+
+anova(height_log_mod)
+emmeans_height_log_mod <- emmeans(height_log_mod, ~ age_class * calluna_NiN_type)
+pairs(emmeans_height_log_mod, , type="response") #Add type="response" for contrasting ratios, one group is i.e 0.830 bigger than the other, a ratio of 1 would mean the groups are identical
+  
+  
+#Back transform data?
+
+
+#Does not look like the transformation did much for the siginificance of results or the variation of the residuals, stay with original 
+
+
+#Should leaf area and SLA be transformed? The data is slightly skewed, seen from the histograms
+
+
+#Original leaf area for comparison
+plot(lm_leaf_area, which = 2) 
+plot(lm_leaf_area, which = 3)
+
+#Log transformed leaf area
+
+leaf_area_log_mod <- lm(log(leaf_area) ~ age_class*calluna_NiN_type, data = cleaned_data)
+summary(leaf_area_log_mod)
+
+plot(leaf_area_log_mod, which = 2) 
+plot(leaf_area_log_mod, which = 3)
+
+
+#Residuals are better fitted to line when transformed and scale location line slightly more horizontal --> decision to log transform leaf area?
+
+
+
+
+#Original SLA for comparison
+qqnorm(residuals(lme4_SLA), main = "Q-Q Plot of Residuals from lme of SLA")
+qqline(residuals(lme4_SLA), col = "red")
+plot(lm_SLA, which = 2) 
+plot(lm_SLA, which = 3)
+
+#Log transformed SLA
+
+SLA_log_mod <- lmerTest::lmer(log(SLA) ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
+summary(SLA_log_mod)
+
+qqnorm(residuals(SLA_log_mod), main = "Q-Q Plot of Residuals from log model of SLA")
+qqline(residuals(SLA_log_mod), col = "red")
+plot(SLA_log_mod, which = 2) 
+plot(SLA__log_mod, which = 3)
+
+#Variance of residuals is slightly lower, but scale plot line not different, decision to stay with original data
+
+
+
+
 ```
 
 # Multivariate analysis
 
-Because traits are not independent, we should investigate interactions between them
+-Because traits are not independent, we should investigate interactions between them
+
+-The primary goal of MANOVA is to determine whether the means of the dependent variables differ significantly across groups while considering the interrelationships between the variables
 
 ```{r}
 #| label: Multivariate analysis
 
-#manova_mod <- manova(
- # cbind(
-  #  dry_mass,
-   # height,
-    #leaf_area,
-    #leaf_thickness,
-    #SLA,
-    #LDMC
-  #) ~ age_class * NiN_type,
-  #data = cleaned_data
-#)
+manova_mod <- manova(
+ cbind(
+wet_mass,
+  dry_mass,
+   height_cm,
+    leaf_area,
+    leaf_thickness_mean,
+    SLA,
+    LDMC
+  ) ~ age_class * calluna_NIN_type,
+  data = cleaned_data
+)
+
+summary(manova_mod)
+summary.aov(manova_mod)
+```
+
+# PCA analysis? -currently only code ideas
+
+Use PCA to reduce dimensionality and identify major axes of trait covariation across NiN types and age classes (remember Diaz et al. 2016 method)
+
+Omit NA values
+
+Because leaf traits often covary (e.g., LES), check for high multicollinearity. Highly correlated variables ((r \> 0.85) or (0.90)) may skew PCA loadings toward specific traits
+
+```{r}
+#| label: PCA analysis
+
+
+# Run unconstrained PCA
+#leaf_pca <- prcomp(scaled_traits, center = FALSE, scale. = FALSE) 
+# Summarize results to see variance explained summary(leaf_pca)
+
+
+# Visualize trait correlations using the 'corrplot' package 
+
+#library(corrplot) M <- cor(trait_data_clean) corrplot(M, method = "circle", type = "upper")
+
+##################
+
+#library(ggcorrplot)
+
+# Subset dataset to include only the 6 continuous trait columns
+#trait_matrix <- cor(your_data[, c("Height", "Leaf_Area", "Leaf_Thickness", "SLA", "LDMC", "Dry_Matter")], use = "complete.obs")
+#ggcorrplot(trait_matrix, hc.order = TRUE, type = "lower", lab = TRUE)
+
+#library(FactoMineR)
+#library(factoextra)
+
+# Run PCA on scaled traits
+#pca_result <- PCA(your_data[, c("Height", "Leaf_Area", "Leaf_Thickness", "SLA", "LDMC", "Dry_Matter")], scale.unit = TRUE, graph = FALSE)
+
+# Plot the trait space with treatment ellipses
+#fviz_pca_ind(pca_result,
+#             label = "none", 
+ #            habillage = interaction(your_data$Nature_Type, your_data$Age_Class), # Colors by treatment combo
+ #addEllipses = TRUE, 
+  #           ellipse.level = 0.95)
+
+#library(vegan)
+
+# Distance matrix based on Euclidean distance of scaled traits
+#trait_dist <- vegdist(scale(your_data[, c("Height", "Leaf_Area", "Leaf_Thickness", "SLA", "LDMC", "Dry_Matter")]), method = "euclidean")
+
+# PERMANOVA testing main effects and interaction, restricting permutations by Plant_ID
+#permanova_result <- adonis2(trait_dist ~ Nature_Type * Age_Class, data = your_data, permutations = 999)
+#print(permanova_result)
 
 ```
 
