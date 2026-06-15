@@ -874,12 +874,12 @@ summary(lm_wet_mass)
 #W = 0.98438, p-value = 0.001733, indicates non-normality
 shapiro.test(residuals(lm_wet_mass))
 
-qqnorm(residuals(lm_wet_mass), main = "Q-Q Plot of Residuals from Linear Regression of wet mass")
-qqline(residuals(lm_wet_mass), col = "red")
-
-#Scale plot
+#qqplot
+plot(lm_wet_mass, which=2)
+#Scale plot checking homoscedasticity of variance, constant variance, points should spread out equally around x-axis and line relatively straight
 plot(lm_wet_mass, which = 3, add.smooth = TRUE)
-
+#Check residuals vs fitted, linearity of model
+plot(lm_wet_mass, which=1)
 
 
 
@@ -908,14 +908,12 @@ summary(lm_wet_mass)
 # W = 0.97974, p-value = 0.0001981 indicates data is not normally distributed, even if it appears so
 shapiro.test(residuals(lm_dry_mass))
 
-qqnorm(residuals(lm_dry_mass), main = "Q-Q Plot of Residuals from Linear Regression of dry mass")
-qqline(residuals(lm_dry_mass), col = "red")
-
-#Scale plot
+#qqplot
+plot(lm_dry_mass, which=2)
+#Scale plot checking homoscedasticity of variance, constant variance, points should spread out equally around x-axis and line relatively straight
 plot(lm_dry_mass, which = 3, add.smooth = TRUE)
-
-
-
+#Check residuals vs fitted, linearity of model
+plot(lm_dry_mass, which=1)
 
 
 
@@ -944,11 +942,13 @@ summary(lm_height_cm)
 #W = 0.98229, p-value = 0.0006273, indicates non-normality
 shapiro.test(residuals(lm_height_cm))
 
-qqnorm(residuals(lm_height_cm), main = "Q-Q Plot of Residuals from Linear Regression of height")
-qqline(residuals(lm_height_cm), col = "red") #Plot is slightly heavy tailed, indicating data contains a few more extreme values than would be expected from a normal distribution
-
-#Scale plot
+#qqplot is slightly heavy tailed, indicating data contains a few more extreme values than would be expected from a normal distribution
+plot(lm_height_cm, which=2)
+#Scale plot checking homoscedasticity of variance, constant variance, points should spread out equally around x-axis and line relatively straight
 plot(lm_height_cm, which = 3, add.smooth = TRUE)
+#Check residuals vs fitted, linearity of model
+plot(lm_height_cm, which=1)
+
 
 
 
@@ -961,7 +961,7 @@ plot(lm_height_cm, which = 3, add.smooth = TRUE)
 
 
 
-#Combined plot for age class*NiN type, for every combination type
+#Combined qq plot for age class*NiN type, every combination type for data before model
 
 ggplot(cleaned_data, aes(sample = leaf_area)) +
   stat_qq() +
@@ -980,11 +980,13 @@ summary(lm_leaf_area)
 #W = 0.98409, p-value = 0.001577, indicates non-normality
 shapiro.test(residuals(lm_leaf_area))
 
-qqnorm(residuals(lm_leaf_area), main = "Q-Q Plot of Residuals from Linear Regression of leaf area")
-qqline(residuals(lm_leaf_area), col = "red") #Plot is slightly heavy tailed, indicating data contains a few more extreme values than would be expected from a normal distribution
+#qqplot
+plot(lm_leaf_area, which=2)
+#Scale plot checking homoscedasticity of variance, constant variance, points should spread out equally around x-axis and line relatively straight
+plot(lm_leaf_area, which = 3, add.smooth = TRUE)
+#Check residuals vs fitted, linearity of model
+plot(lm_leaf_area, which=1)
 
-#Scale plot for linear model
-plot(lm_leaf_area, which = 3, add.smooth = TRUE, title = "Linear model scale plot") 
   
 
 
@@ -1019,11 +1021,12 @@ summary(lm_leaf_thickness)
 #W = 0.96656, p-value = 6.664e-14, not normally distributed
 shapiro.test(residuals(lm_leaf_thickness))
 
-qqnorm(residuals(lm_leaf_thickness), main = "Q-Q Plot of Residuals from Linear Regression of leaf thickness")
-qqline(residuals(lm_leaf_thickness), col = "red")
-
-#Scale plot
+#qqplot
+plot(lm_leaf_thickness, which=2)
+#Scale plot checking homoscedasticity of variance, constant variance, points should spread out equally around x-axis and line relatively straight
 plot(lm_leaf_thickness, which = 3, add.smooth = TRUE)
+#Check residuals vs fitted, linearity of model
+plot(lm_leaf_thickness, which=1)
 
 
 
@@ -1051,12 +1054,12 @@ summary(lm_SLA)
 #W = 0.96722, p-value = 1.639e-06, not normally distributed
 shapiro.test(residuals(lm_SLA))
 
-qqnorm(residuals(lm_SLA), main = "Q-Q Plot of Residuals from Linear Regression of SLA")
-qqline(residuals(lm_SLA), col = "red") #Plot is slightly heavy tailed, indicating data contains a few more extreme values than would be expected from a normal distribution
-
-#Scale plot
+#qqplot
+plot(lm_SLA, which=2)
+#Scale plot checking homoscedasticity of variance, constant variance, points should spread out equally around x-axis and line relatively straight
 plot(lm_SLA, which = 3, add.smooth = TRUE)
-
+#Check residuals vs fitted, linearity of model
+plot(lm_SLA, which=1)
 
 
 
@@ -1086,11 +1089,13 @@ summary(lm_LDMC)
 #W = 0.98146, p-value = 0.0004388, not normally distributed
 shapiro.test(residuals(lm_LDMC))
 
-qq_LDMC <- qqnorm(residuals(lm_LDMC), main = "Q-Q Plot of Residuals from Linear Regression of LDMC")
-qqline(residuals(lm_LDMC), col = "red")
+#qqplot
+plot(lm_LDMC, which=2)
+#Scale plot checking homoscedasticity of variance, constant variance, points should spread out equally around x-axis and line relatively straight
+plot(lm_LDMC, which = 3, add.smooth = TRUE)
+#Check residuals vs fitted, linearity of model
+plot(lm_LDMC, which=1)
 
-#Scale plot
-scale_LDMC <- plot(lm_LDMC, which = 3, add.smooth = TRUE)
 
 
 ```
@@ -1226,18 +1231,7 @@ qqline(residuals(lme4_dry_mass), col = "red")
 #Scale plot suggests mild heteroscedasticity with variance increasing slighlty with the mean
 
 
-r_dry_mass <- resid(lme4_dry_mass, type = "pearson")
-idx_dry_mass <- which(abs(r_dry_mass) > 2 * sd(r_dry_mass))
-idx_dry_mass
 
-#Which plants drive the greatest residuals
-
-cleaned_data[idx_dry_mass,
-             c("plant_nr",
-               "dry_mass",
-               "age_class",
-               "calluna_NiN_type",
-               "collection_time")]
 
 
 ###### Height -mixed model for height doesn't make sense as it is equal per plant
@@ -1254,21 +1248,9 @@ plot(lme4_leaf_area)
 qq_leaf_area_lme4 <- qqnorm(residuals(lme4_leaf_area), main = "Q-Q Plot of Residuals from lme of leaf area")
 qqline(residuals(lme4_leaf_area), col = "red")
 
-#Scale plot suggests mild heteroscedasticity with variance increasing slighlty with the mean
 
-r_leaf_area <- resid(lme4_leaf_area, type = "pearson")
-idx_leaf_area <- which(abs(r_leaf_area) > 2 * sd(r_leaf_area))
-idx_leaf_area
 
-#Which plants drive the greatest residuals
- 
-cleaned_data[idx_leaf_area,
-             c("plant_nr",
-               "bulk_nr_leaves",
-               "leaf_area",
-               "age_class",
-               "calluna_NiN_type",
-               "collection_time")]
+
 
 
 ###### Leaf thickness
@@ -1281,19 +1263,7 @@ plot(lme4_leaf_thickness)
 qq_leaf_thickness_lme4 <- qqnorm(residuals(lme4_leaf_thickness), main = "Q-Q Plot of Residuals from lme of leaf thickness")
 qqline(residuals(lme4_leaf_thickness), col = "red")
 
-r_leaf_thickness <- resid(lme4_leaf_thickness, type = "pearson")
-idx_leaf_thickness <- which(abs(r_leaf_thickness) > 2 * sd(r_leaf_thickness))
-idx_leaf_thickness
 
-#Which plants drive the greatest residuals
-
-data_thickness[idx_leaf_thickness,
-             c("plant_nr",
-               "bulk_nr_leaves",
-               "leaf_thickness",
-               "age_class",
-               "calluna_NiN_type",
-               "collection_time")]
 
 
 #Scale plot sorted by NiN type and age class, to see in which group residuals have greater variation
@@ -1332,19 +1302,6 @@ plot(lme4_LDMC)
 qq_LDMC_lme4 <- qqnorm(residuals(lme4_LDMC), main = "Q-Q Plot of Residuals from lme of LDMC")
 qqline(residuals(lme4_LDMC), col = "red")
 
-r_LDMC <- resid(lme4_LDMC, type = "pearson")
-idx_LDMC <- which(abs(r_LDMC) > 2 * sd(r_LDMC))
-idx_LDMC
-
-#Which plants drive the greatest residuals
-
-cleaned_data[idx_LDMC,
-               c("plant_nr",
-                 "bulk_nr_leaves",
-                 "LDMC",
-                 "age_class",
-                 "calluna_NiN_type",
-                 "collection_time")]
 
 
 ###### SLA
@@ -1359,27 +1316,11 @@ plot(lme4_SLA)
 #Scale plot suggests mild heteroscedasticity with slight fanning effect increasing with mean
 
 
-#Histogram of residuals, check for normal distribution
-ggplot(data_pred_SLA,aes(x=residual_SLA)) + geom_histogram(bins=20, color="black")
-
 #qq plot
 
 qq_SLA_lme4 <- qqnorm(residuals(lme4_SLA), main = "Q-Q Plot of Residuals from lme of SLA")
 qqline(residuals(lme4_SLA), col = "red")
 
-r_SLA <- residuals(lme4_SLA, type = "pearson")
-idx_SLA <- which(abs(r_SLA) > 2 * sd(r_SLA))
-idx_SLA
-
-#Which plants drive the greatest residuals
-
-cleaned_data[idx_SLA,
-             c("plant_nr",
-               "bulk_nr_leaves",
-               "SLA",
-               "age_class",
-               "calluna_NiN_type",
-               "collection_time")]
 
 
 
@@ -1600,6 +1541,24 @@ plot(leaf_area_log_mod, which = 3)
 
 
 #Residuals are better fitted to line when transformed and scale location line slightly more horizontal --> decision to log transform leaf area?
+
+#Checking lmer model of leaf area with transformation as scale plot of non-transformed suggests mild heteroscedasticity with variance increasing slighlty with the mean
+
+#Non-transfromend for comparison
+plot(lme4_leaf_area)
+qq_leaf_area_lme4 <- qqnorm(residuals(lme4_leaf_area), main = "Q-Q Plot of Residuals from lme of leaf area")
+qqline(residuals(lme4_leaf_area), col = "red")
+
+
+#Log transformed
+log_leaf_area <- lmerTest::lmer(log(leaf_area) ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
+
+summary(log_leaf_area)  
+plot(log_leaf_area)
+
+qq_leaf_area_log <- qqnorm(residuals(log_leaf_area), main = "Q-Q Plot of Residuals from log transformed leaf area")
+qqline(residuals(log_leaf_area), col = "red")
+
 
 
 
