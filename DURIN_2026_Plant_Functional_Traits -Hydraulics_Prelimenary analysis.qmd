@@ -26,6 +26,8 @@ library(afex) #linear mixed models
 library(lme4) #linear mixed models
 library(sdamr) #linear mixed models
 library(lmerTest)
+library(tidyr #Data visualization, presenting results
+library(multcomp) #emmeans contrasts on plots
 
 
 
@@ -78,9 +80,9 @@ cleaned_data$calluna_NIN_type <- factor((cleaned_data$calluna_NiN_type),
 # Check if changed successfully
 levels(cleaned_data$calluna_NiN_type)
 
-## Define colour palette (used with scale fill manual)
+## Define colour palette (used with scale fill manual) 
 
-NIN <- c("BH" = "#083508", "FH" = "#589758", "TH" = "#889000")
+NIN <- c("BH" = "darkslategrey", "FH" = "deepskyblue4", "TH" = "lightskyblue")
 AGE <- c("Pioneer" = "#087E8B","Building" = "#EB5461", "Mature" = "#884000") 
 
 
@@ -857,29 +859,29 @@ The dependent variable should be approximately normally distributed within each 
 
 #Combined qqplot for age class*NiN type, for every combination type, better overview
 
-ggplot(cleaned_data, aes(sample = wet_mass)) +
-  stat_qq() +
-  stat_qq_line(col = "red") +
-  facet_grid(age_class ~ calluna_NiN_type) +
-  labs(title = "Wet mass qq plot")
+#ggplot(cleaned_data, aes(sample = wet_mass)) +
+ # stat_qq() +
+  #stat_qq_line(col = "red") +
+  #facet_grid(age_class ~ calluna_NiN_type) +
+  #labs(title = "Wet mass qq plot")
 
 
 #Linear model with interaction of age class and NiN type
-lm_wet_mass <- lm(wet_mass ~ age_class*calluna_NiN_type, data = cleaned_data)
-summary(lm_wet_mass)
+#lm_wet_mass <- lm(wet_mass ~ age_class*calluna_NiN_type, data = cleaned_data)
+#summary(lm_wet_mass)
 
 
 
 #Checking residuals 
 #W = 0.98438, p-value = 0.001733, indicates non-normality
-shapiro.test(residuals(lm_wet_mass))
+#shapiro.test(residuals(lm_wet_mass))
 
 #qqplot
-plot(lm_wet_mass, which=2)
+#plot(lm_wet_mass, which=2)
 #Scale plot checking homoscedasticity of variance, constant variance, points should spread out equally around x-axis and line relatively straight
-plot(lm_wet_mass, which = 3, add.smooth = TRUE)
+#plot(lm_wet_mass, which = 3, add.smooth = TRUE)
 #Check residuals vs fitted, linearity of model
-plot(lm_wet_mass, which=1)
+#plot(lm_wet_mass, which=1)
 
 
 
@@ -891,29 +893,29 @@ plot(lm_wet_mass, which=1)
 
 #Combined plot for age class*NiN type, for every combination type
 
-ggplot(cleaned_data, aes(sample = dry_mass)) +
-  stat_qq() +
-  stat_qq_line(col = "red") +
-  facet_grid(age_class ~ calluna_NiN_type) +
-  labs(title = "Dry mass qq plot")
+#ggplot(cleaned_data, aes(sample = dry_mass)) +
+ # stat_qq() +
+  #stat_qq_line(col = "red") +
+  #facet_grid(age_class ~ calluna_NiN_type) +
+  #labs(title = "Dry mass qq plot")
 
 
 
 #Linear model with interaction of age class and NiN type
-lm_dry_mass <- lm(dry_mass ~ age_class*calluna_NiN_type, data = cleaned_data)
-summary(lm_wet_mass)
+#lm_dry_mass <- lm(dry_mass ~ age_class*calluna_NiN_type, data = cleaned_data)
+#summary(lm_wet_mass)
 
 
 #Checking residuals
 # W = 0.97974, p-value = 0.0001981 indicates data is not normally distributed, even if it appears so
-shapiro.test(residuals(lm_dry_mass))
+#shapiro.test(residuals(lm_dry_mass))
 
 #qqplot
-plot(lm_dry_mass, which=2)
+#plot(lm_dry_mass, which=2)
 #Scale plot checking homoscedasticity of variance, constant variance, points should spread out equally around x-axis and line relatively straight
-plot(lm_dry_mass, which = 3, add.smooth = TRUE)
+#plot(lm_dry_mass, which = 3, add.smooth = TRUE)
 #Check residuals vs fitted, linearity of model
-plot(lm_dry_mass, which=1)
+#plot(lm_dry_mass, which=1)
 
 
 
@@ -963,29 +965,29 @@ plot(lm_height_cm, which=1)
 
 #Combined qq plot for age class*NiN type, every combination type for data before model
 
-ggplot(cleaned_data, aes(sample = leaf_area)) +
-  stat_qq() +
-  stat_qq_line(col = "red") +
-  facet_grid(age_class ~ calluna_NiN_type) +
-  labs(title = "Leaf area qq plot")
+#ggplot(cleaned_data, aes(sample = leaf_area)) +
+ # stat_qq() +
+  #stat_qq_line(col = "red") +
+  #facet_grid(age_class ~ calluna_NiN_type) +
+  #labs(title = "Leaf area qq plot")
 
 #Linear model leaf area with interaction of age class and NiN type
 
-lm_leaf_area <- lm(leaf_area ~ age_class*calluna_NiN_type, data = cleaned_data)
-summary(lm_leaf_area)
+#lm_leaf_area <- lm(leaf_area ~ age_class*calluna_NiN_type, data = cleaned_data)
+#summary(lm_leaf_area)
 
 
 
 #Checking residuals
 #W = 0.98409, p-value = 0.001577, indicates non-normality
-shapiro.test(residuals(lm_leaf_area))
+#shapiro.test(residuals(lm_leaf_area))
 
 #qqplot
-plot(lm_leaf_area, which=2)
+#plot(lm_leaf_area, which=2)
 #Scale plot checking homoscedasticity of variance, constant variance, points should spread out equally around x-axis and line relatively straight
-plot(lm_leaf_area, which = 3, add.smooth = TRUE)
+#plot(lm_leaf_area, which = 3, add.smooth = TRUE)
 #Check residuals vs fitted, linearity of model
-plot(lm_leaf_area, which=1)
+#plot(lm_leaf_area, which=1)
 
   
 
@@ -1004,29 +1006,29 @@ plot(lm_leaf_area, which=1)
 
 #Combined plot for age class*NiN type, for every combination type
 
-ggplot(data_thickness, aes(sample = leaf_thickness)) +
-  stat_qq() +
-  stat_qq_line(col = "red") +
-  facet_grid(age_class ~ calluna_NiN_type) +
-  labs(title = "Leaf thickness qq plot")
+#ggplot(data_thickness, aes(sample = leaf_thickness)) +
+ # stat_qq() +
+  #stat_qq_line(col = "red") +
+  #facet_grid(age_class ~ calluna_NiN_type) +
+  #labs(title = "Leaf thickness qq plot")
 
 
 
 #Linear model with interaction of age class and NiN type
-lm_leaf_thickness <- lm(leaf_thickness ~ age_class*calluna_NiN_type, data = data_thickness)
-summary(lm_leaf_thickness)
+#lm_leaf_thickness <- lm(leaf_thickness ~ age_class*calluna_NiN_type, data = data_thickness)
+#summary(lm_leaf_thickness)
 
 
 #checking residuals
 #W = 0.96656, p-value = 6.664e-14, not normally distributed
-shapiro.test(residuals(lm_leaf_thickness))
+#shapiro.test(residuals(lm_leaf_thickness))
 
 #qqplot
-plot(lm_leaf_thickness, which=2)
+#plot(lm_leaf_thickness, which=2)
 #Scale plot checking homoscedasticity of variance, constant variance, points should spread out equally around x-axis and line relatively straight
-plot(lm_leaf_thickness, which = 3, add.smooth = TRUE)
+#plot(lm_leaf_thickness, which = 3, add.smooth = TRUE)
 #Check residuals vs fitted, linearity of model
-plot(lm_leaf_thickness, which=1)
+#plot(lm_leaf_thickness, which=1)
 
 
 
@@ -1038,28 +1040,28 @@ plot(lm_leaf_thickness, which=1)
 
 #Combined plot for age class*NiN type, for every combination type
 
-ggplot(cleaned_data, aes(sample = SLA)) +
-  stat_qq() +
-  stat_qq_line(col = "red") +
-  facet_grid(age_class ~ calluna_NiN_type) +
-  labs(title = "SLA qq plot")
+#ggplot(cleaned_data, aes(sample = SLA)) +
+ # stat_qq() +
+  #stat_qq_line(col = "red") +
+  #facet_grid(age_class ~ calluna_NiN_type) +
+  #labs(title = "SLA qq plot")
 
 
 #Linear model with interaction of age class and NiN type
-lm_SLA <- lm(SLA ~ age_class*calluna_NiN_type, data = cleaned_data)
-summary(lm_SLA)
+#lm_SLA <- lm(SLA ~ age_class*calluna_NiN_type, data = cleaned_data)
+#summary(lm_SLA)
 
 
 #checking residuals
 #W = 0.96722, p-value = 1.639e-06, not normally distributed
-shapiro.test(residuals(lm_SLA))
+#shapiro.test(residuals(lm_SLA))
 
 #qqplot
-plot(lm_SLA, which=2)
+#plot(lm_SLA, which=2)
 #Scale plot checking homoscedasticity of variance, constant variance, points should spread out equally around x-axis and line relatively straight
-plot(lm_SLA, which = 3, add.smooth = TRUE)
+#plot(lm_SLA, which = 3, add.smooth = TRUE)
 #Check residuals vs fitted, linearity of model
-plot(lm_SLA, which=1)
+#plot(lm_SLA, which=1)
 
 
 
@@ -1072,29 +1074,29 @@ plot(lm_SLA, which=1)
 
 #Combined plot for age class*NiN type, for every combination type
 
-ggplot(cleaned_data, aes(sample = LDMC)) +
-  stat_qq() +
-  stat_qq_line(col = "red") +
-  facet_grid(age_class ~ calluna_NiN_type) +
-  labs(title = "LDMC qq plot")
+#ggplot(cleaned_data, aes(sample = LDMC)) +
+ # stat_qq() +
+  #stat_qq_line(col = "red") +
+  #facet_grid(age_class ~ calluna_NiN_type) +
+  #labs(title = "LDMC qq plot")
 
 
 #Linear model with interaction of age class and NiN type
-lm_LDMC <- lm(LDMC ~ age_class*calluna_NiN_type, data = cleaned_data)
-summary(lm_LDMC)
+#lm_LDMC <- lm(LDMC ~ age_class*calluna_NiN_type, data = cleaned_data)
+#summary(lm_LDMC)
 
 
 
 #Checking residuals
 #W = 0.98146, p-value = 0.0004388, not normally distributed
-shapiro.test(residuals(lm_LDMC))
+#shapiro.test(residuals(lm_LDMC))
 
 #qqplot
-plot(lm_LDMC, which=2)
+#plot(lm_LDMC, which=2)
 #Scale plot checking homoscedasticity of variance, constant variance, points should spread out equally around x-axis and line relatively straight
-plot(lm_LDMC, which = 3, add.smooth = TRUE)
+#plot(lm_LDMC, which = 3, add.smooth = TRUE)
 #Check residuals vs fitted, linearity of model
-plot(lm_LDMC, which=1)
+#plot(lm_LDMC, which=1)
 
 
 
@@ -1377,7 +1379,7 @@ anova(lm_height_cm)
 
 (emmeans_height_cm<- emmeans(lm_height_cm, ~ age_class * calluna_NiN_type))
 pairs(emmeans_height_cm, simple="each")
-
+cld(emmeans_height_cm, adjust = "tukey")
 
 
 #Leaf area
@@ -1439,6 +1441,9 @@ anova(lme4_wet_mass)
 (emmeans_lme4_wet_mass<- emmeans(lme4_wet_mass, ~ age_class * calluna_NiN_type))
 pairs(emmeans_lme4_wet_mass, simple="each")
 
+#Tukey adjustment to prevent false positives
+cld(emmeans_lme4_wet_mass, adjust = "tukey")
+
 plot(emmeans_lme4_wet_mass)
 
 #Dry mass
@@ -1450,7 +1455,9 @@ anova(lme4_dry_mass)
 (emmeans_lme4_dry_mass<- emmeans(lme4_dry_mass, ~ age_class * calluna_NiN_type))
 pairs(emmeans_lme4_dry_mass, simple="each")
 
-plot(emmeans_dry_mass)
+#Tukey adjustment to prevent false positives
+cld(emmeans_lme4_dry_mass, adjust = "tukey")
+
 
 
 #Leaf area
@@ -1462,6 +1469,10 @@ anova(lme4_leaf_area)
 (emmeans_lme4_leaf_area<- emmeans(lme4_leaf_area, ~ age_class * calluna_NiN_type))
 pairs(emmeans_lme4_leaf_area, simple="each")
 
+#Tukey adjustment to prevent false positives
+cld(emmeans_lme4_leaf_area, adjust = "tukey")
+
+
 #Leaf thickness
 
 cat("######## Leaf thickness (mm)\n\n")
@@ -1471,6 +1482,10 @@ anova(lme4_leaf_thickness)
 (emmeans_lme4_leaf_thickness<- emmeans(lme4_leaf_thickness, ~ age_class * calluna_NiN_type))
 pairs(emmeans_lme4_leaf_thickness, simple="each")
 
+#Tukey adjustment to prevent false positives
+cld(emmeans_lme4_leaf_thickness, adjust = "tukey")
+
+
 #LDMC
 
 cat("######## LDMC\n\n")
@@ -1479,6 +1494,10 @@ anova(lme4_LDMC)
 
 (emmeans_lme4_LDMC<- emmeans(lme4_LDMC, ~ age_class * calluna_NiN_type))
 pairs(emmeans_lme4_LDMC, simple="each") 
+
+#Tukey adjustment to prevent false positives
+cld(emmeans_lme4_LDMC, adjust = "tukey")
+
 
 
 
@@ -1490,6 +1509,10 @@ anova(lme4_SLA)
 
 (emmeans_lme4_SLA<- emmeans(lme4_SLA, ~ age_class * calluna_NiN_type))
 pairs(emmeans_lme4_SLA, simple="each") 
+
+#Tukey adjustment to prevent false positives
+cld(emmeans_lme4_SLA, adjust = "tukey")
+
 ```
 
 # Data transformation
@@ -1667,188 +1690,45 @@ Because leaf traits often covary (e.g., LES), check for high multicollinearity. 
 
 # Presenting results -interactive plots
 
--add titles and significance eventually
+Comparing results of emmeans post-hoc test, for visualizing the magnitude and direction of differences between group means
+
+#A heatmap of estimates does not show: variability within groups, outliers, sample distributions,overlap among observations.
+
+#Negative values → the first group has a lower mean than the second.
+
+#Positive values → the first group has a higher mean than the second.
+
+#Values near 0 → the groups are similar.
 
 ```{r}
-#| label: making summary plots for presenting results in a tidy manner
+#| label: summary plots for height
 
 
 #Excluding NAs from the clalculations of the mean as they prevent results, na.omit()
 
-
-
-#Wet mass
-
-
-ggplot(df_sum_wet_mass, 
-       aes(x = calluna_NiN_type, y = mean_wet_mass, colour = age_class,
-           ymin = mean_wet_mass - se_wet_mass, ymax = mean_wet_mass + se_wet_mass)) +
-  # this adds the mean
-  geom_point(size = 3) +
-  # this adds the error bars
-  geom_errorbar(width = 0.1) +  
-  scale_color_manual(values = AGE) +
-  scale_fill_manual(values = AGE)  +
-  xlab("NiN type") + ylab("Wet mass (g)") 
-
-
-ggplot(df_sum_wet_mass, 
-       aes(x = calluna_NiN_type, y = mean_wet_mass, fill = age_class,
-           ymin = mean_wet_mass - se_wet_mass, ymax = mean_wet_mass + se_wet_mass)) +
-  # this adds the mean
-  geom_col(position = position_dodge()) +
-  # this adds the error bars
-  geom_errorbar(position = position_dodge(0.9), width=.2) +
-  scale_color_manual(values = AGE) +
-  scale_fill_manual(values = AGE) +
-  # controlling the appearance
-  xlab("NiN type") + ylab("Wet mass (g)")
-
-
-
-#Dry mass
-
-#pos <- position_dodge(0.15). #to dodge the position of plotted points if overlapping
-
-ggplot(df_sum_dry_mass, 
-       aes(x = calluna_NiN_type, y = mean_dry_mass, colour = age_class,
-           ymin = mean_dry_mass - se_dry_mass, ymax = mean_dry_mass + se_dry_mass)) +
-  geom_point(size = 3) +
-  geom_errorbar(width = 0.1) +  
-  scale_color_manual(values = AGE) +
-  scale_fill_manual(values = AGE)  +
-  xlab("NiN type") + ylab("Dry mass (g)") 
-
-ggplot(df_sum_dry_mass, 
-       aes(x = calluna_NiN_type, y = mean_dry_mass, fill = age_class,
-           ymin = mean_dry_mass - se_dry_mass, ymax = mean_dry_mass + se_dry_mass)) +
-  geom_col(position = position_dodge()) +
-  geom_errorbar(position = position_dodge(0.9), width=.2) +
-  scale_color_manual(values = AGE) +
-  scale_fill_manual(values = AGE) +
-  xlab("NiN type") + ylab("Dry mass (g)")
-
-
 #Height
 
+#dataframe with multicomp, adding significance groups from emmeans
+cld_height <- cld(
+  emmeans_height_cm,
+  adjust = "tukey",
+  Letters = letters
+)
 
-ggplot(df_sum_height, 
-       aes(x = calluna_NiN_type, y = mean_height_cm, colour = age_class,
-           ymin = mean_height_cm - se_height_cm, ymax = mean_height_cm + se_height_cm)) +
-  geom_point(size = 3) +
-  geom_errorbar(width = 0.1) +  
-  scale_color_manual(values = AGE) +
-  scale_fill_manual(values = AGE)  +
-  xlab("NiN type") + ylab("Height (cm)") 
-
-ggplot(df_sum_height, 
-       aes(x = calluna_NiN_type, y = mean_height_cm, fill = age_class,
-           ymin = mean_height_cm - se_height_cm, ymax = mean_height_cm + se_height_cm)) +
-  geom_col(position = position_dodge()) +
-  geom_errorbar(position = position_dodge(0.9), width=.2) +
-  scale_color_manual(values = AGE) +
-  scale_fill_manual(values = AGE) +
-  xlab("NiN type") + ylab("Height (cm)")
-
-#Leaf area
+multicomp_height_df <- left_join(
+  df_sum_height,
+  cld_height %>%
+    dplyr::select(age_class, calluna_NiN_type, .group),
+  by = c("age_class", "calluna_NiN_type")
+)
 
 
-ggplot(df_sum_leaf_area, 
-       aes(x = calluna_NiN_type, y = mean_leaf_area, colour = age_class,
-           ymin = mean_leaf_area - se_leaf_area, ymax = mean_leaf_area + se_leaf_area)) +
-  geom_point(size = 3) +
-  geom_errorbar(width = 0.1) +  
-  scale_color_manual(values = AGE) +
-  scale_fill_manual(values = AGE)  +
-  xlab("NiN type") + ylab("Leaf area (mm^2)")
+#data frame for estimate values from emmeans with all interactions
+pairs(emmeans_height_cm)
+contrasts_height_df <- as.data.frame(pairs(emmeans_height_cm))
+head(contrasts_height_df)
 
-ggplot(df_sum_leaf_area, 
-       aes(x = calluna_NiN_type, y = mean_leaf_area, fill = age_class,
-           ymin = mean_leaf_area - se_leaf_area, ymax = mean_leaf_area + se_leaf_area)) +
-  geom_col(position = position_dodge()) +
-  geom_errorbar(position = position_dodge(0.9), width=.2) +
-  scale_color_manual(values = AGE) +
-  scale_fill_manual(values = AGE) +
-  xlab("NiN type") + ylab("Leaf area (mm^2)")
-
-
-#Leaf thickness
-
-ggplot(df_sum_leaf_thickness, 
-       aes(x = calluna_NiN_type, y = mean_leaf_thickness, colour = age_class,
-           ymin = mean_leaf_thickness - se_leaf_thickness, ymax = mean_leaf_thickness + se_leaf_thickness)) +
-  geom_point(size = 3) +
-  geom_errorbar(width = 0.1) +  
-  scale_color_manual(values = AGE) +
-  scale_fill_manual(values = AGE)  +
-  xlab("NiN type") + ylab("Leaf thickness (mm)") 
-
-ggplot(df_sum_leaf_thickness, 
-       aes(x = calluna_NiN_type, y = mean_leaf_thickness, fill = age_class,
-           ymin = mean_leaf_thickness - se_leaf_thickness, ymax = mean_leaf_thickness + se_leaf_thickness)) +
-  geom_col(position = position_dodge()) +
-  geom_errorbar(position = position_dodge(0.9), width=.2) +
-  scale_color_manual(values = AGE) +
-  scale_fill_manual(values = AGE) +
-  xlab("NiN type") + ylab("Leaf thickness (mm)")
-
-
-
-#LDMC
-
-ggplot(df_sum_LDMC, 
-       aes(x = calluna_NiN_type, y = mean_LDMC, colour = age_class,
-           ymin = mean_LDMC - se_LDMC, ymax = mean_LDMC + se_LDMC)) +
-  geom_point(size = 3) +
-  geom_errorbar(width = 0.1) +  
-  scale_color_manual(values = AGE) +
-  scale_fill_manual(values = AGE)  +
-  xlab("NiN type") + ylab("LDMC") 
-
-ggplot(df_sum_LDMC, 
-       aes(x = calluna_NiN_type, y = mean_LDMC, fill = age_class,
-           ymin = mean_LDMC - se_LDMC, ymax = mean_LDMC + se_LDMC)) +
-  geom_col(position = position_dodge()) +
-  geom_errorbar(position = position_dodge(0.9), width=.2) +
-  scale_color_manual(values = AGE) +
-  scale_fill_manual(values = AGE) +
-  xlab("NiN type") + ylab("LDMC")
-
-
-#SLA
-
-ggplot(df_sum_SLA, 
-       aes(x = calluna_NiN_type, y = mean_SLA, colour = age_class,
-           ymin = mean_SLA - se_SLA, ymax = mean_SLA + se_SLA)) +
-  geom_point(size = 3) +
-  geom_errorbar(width = 0.1) +  
-  scale_color_manual(values = AGE) +
-  scale_fill_manual(values = AGE)  +
-  xlab("NiN type") + ylab("SLA") 
-
-ggplot(df_sum_SLA, 
-       aes(x = calluna_NiN_type, y = mean_SLA, fill = age_class,
-           ymin = mean_SLA - se_SLA, ymax = mean_SLA + se_SLA)) +
-  geom_col(position = position_dodge()) +
-  geom_errorbar(position = position_dodge(0.9), width=.2) +
-  scale_color_manual(values = AGE) +
-  scale_fill_manual(values = AGE) +
-  xlab("NiN type") + ylab("SLA")
-
-
-#Comparing results of emmeans post-hoc test, for visualizing the magnitude and direction of differences between group means
-#A heatmap of estimates does not show: variability within groups, outliers, sample distributions,overlap among observations.
-#Negative values → the first group has a lower mean than the second.
-#Positive values → the first group has a higher mean than the second.
-#Values near 0 → the groups are similar.
-
-pairs(emmeans_SLA)
-contrasts_SLA_df <- as.data.frame(pairs(emmeans_SLA))
-head(contrasts_SLA_df)
-
-library(tidyr)
-
-contrasts_SLA_df <- contrasts_SLA_df |>
+contrasts_height_df <- contrasts_height_df |>
   separate(
     contrast,
     into = c("calluna_NiN_type", "age_class"),
@@ -1856,24 +1736,68 @@ contrasts_SLA_df <- contrasts_SLA_df |>
   )
 
 
-ggplot(contrasts_SLA_df,
-       aes(calluna_NiN_type, age_class, fill = estimate)) +
-  geom_tile() +
+
+
+#point plot with error bars -best for visualization and overview
+
+ggplot(
+  multicomp_height_df,
+  aes(
+    x = age_class,
+    y = mean_height_cm,
+    colour = calluna_NiN_type
+  )
+) +
   geom_point(
-    data = subset(contrasts_SLA_df, p.value < 0.05),
-    shape = 8
-  )+
-  scale_fill_gradient2(
-    low = "darkblue",
-    mid = "white",
-    high = "red",
-    midpoint = 0
-  ) 
+    position = position_dodge(0.9),
+    size = 3
+  ) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  geom_errorbar(
+    aes(
+      ymin = mean_height_cm - se_height_cm,
+      ymax = mean_height_cm + se_height_cm
+    ),
+    width = 0.2,
+    position = position_dodge(0.9)
+  ) +
+  geom_text(
+    aes(
+      y = mean_height_cm + se_height_cm,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean vegetative height (cm) of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="Height (cm)", fill="NiN type")
+  
+  
+  #Barchart -not so easy to read as it looks like y-axis is counting the height
+ggplot(multicomp_height_df, 
+       aes(x = age_class, y = mean_height_cm, group= calluna_NiN_type, fill = calluna_NiN_type,
+           ymin = mean_height_cm - se_height_cm, ymax = mean_height_cm + se_height_cm)) +
+  geom_col(position = position_dodge(0.9)) +
+  geom_errorbar(position = position_dodge(0.9), width=0.2) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  geom_text(
+    aes(
+      y = mean_height_cm + se_height_cm,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean vegetative height (cm) of Calluna vulgaris across age class and NiN type",
+  x="Age class", y="Height (cm)", fill="NiN type")
 
 
 
+#Plot with circles and different levels of significance -showing the size of the estimated differences between the age class and NiN type, a bit to noisy for presenting results
 
-ggplot(contrasts_SLA_df,
+ggplot(contrasts_height_df,
        aes(calluna_NiN_type, age_class)) +
   geom_point(
     aes(size = abs(estimate),
@@ -1889,12 +1813,789 @@ ggplot(contrasts_SLA_df,
     )),
     size = 5,
     nudge_y = 0.2)+
-   scale_fill_gradient2(midpoint = 0) +
+  xlab("NIN type")+
+  ylab("Age class")+
+  theme(
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1,
+      vjust = 1
+    )
+  )+
   coord_equal()+
   scale_fill_gradient2(
-    low = "darkblue",
+    low = "brown",
     mid = "white",
-    high = "red",
-    midpoint = 0
+    high = "darkgreen",
+    midpoint=0
   ) 
+
+
+
+```
+
+```{r}
+#| label: Summary plot for wet mass
+
+
+#dataframe with multicomp, adding significance groups from emmeans
+cld_wet_mass <- cld(
+  emmeans_lme4_wet_mass,
+  adjust = "tukey",
+  Letters = letters
+)
+
+multicomp_wet_mass_df <- left_join(
+  df_sum_wet_mass,
+  cld_wet_mass %>%
+    dplyr::select(age_class, calluna_NiN_type, .group),
+  by = c("age_class", "calluna_NiN_type")
+)
+
+
+#data frame for estimate values from emmeans with all interactions
+pairs(emmeans_lme4_wet_mass)
+contrasts_wet_mass_df <- as.data.frame(pairs(emmeans_lme4_wet_mass))
+head(contrasts_wet_mass_df)
+
+contrasts_wet_mass_df <- contrasts_wet_mass_df |>
+  separate(
+    contrast,
+    into = c("calluna_NiN_type", "age_class"),
+    sep = " - "
+  )
+
+
+names(multicomp_wet_mass_df)
+
+#point plot with error bars -best for visualization and overview
+
+ggplot(
+  multicomp_wet_mass_df,
+  aes(
+    x = age_class,
+    y = mean_wet_mass,
+    colour = calluna_NiN_type,
+    group = calluna_NiN_type
+  )
+) +
+  geom_point(
+    position = position_dodge(0.9),
+    size = 3
+  ) +
+  scale_color_manual(values = NIN) +
+  geom_errorbar(
+    aes(
+      ymin = mean_wet_mass - se_wet_mass,
+      ymax = mean_wet_mass + se_wet_mass
+    ),
+    width = 0.2,
+    position = position_dodge(0.9)
+  ) +
+  geom_text(
+    aes(
+      y = mean_wet_mass + se_wet_mass,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean wet mass (g) of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="Wet mass (g)", fill="NiN type")
+
+
+#Barchart -not so easy to read as it looks like y-axis is counting the height
+ggplot(multicomp_wet_mass_df, 
+       aes(x = age_class, y = mean_wet_mass, group= calluna_NiN_type, fill = calluna_NiN_type,
+           ymin = mean_wet_mass - se_wet_mass, ymax = mean_wet_mass + se_wet_mass)) +
+  geom_col(position = position_dodge(0.9)) +
+  geom_errorbar(position = position_dodge(0.9), width=0.2) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  geom_text(
+    aes(
+      y = mean_wet_mass + se_wet_mass,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean wet mass (g) of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="Wet mass (g)", fill="NiN type")
+
+
+
+#Plot with circles and different levels of significance -showing the size of the estimated differences between the age class and NiN type, a bit to noisy for presenting results
+
+ggplot(contrasts_wet_mass_df,
+       aes(calluna_NiN_type, age_class)) +
+  geom_point(
+    aes(size = abs(estimate),
+        fill = estimate),
+    shape = 21
+  ) +
+  geom_text(
+    aes(label = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01  ~ "**",
+      p.value < 0.05  ~ "*",
+      TRUE ~ ""
+    )),
+    size = 5,
+    nudge_y = 0.2)+
+  theme(
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1,
+      vjust = 1
+    )
+  )+
+  coord_equal()+
+  scale_fill_gradient2(
+    low = "brown",
+    mid = "white",
+    high = "darkgreen",
+    midpoint=0
+  ) 
+
+
+
+```
+
+```{r}
+#| label: Summary plots for dry mass
+
+
+#dataframe with multicomp, adding significance groups from emmeans
+cld_wet_mass <- cld(
+  emmeans_lme4_wet_mass,
+  adjust = "tukey",
+  Letters = letters
+)
+
+multicomp_wet_mass_df <- left_join(
+  df_sum_wet_mass,
+  cld_wet_mass %>%
+    dplyr::select(age_class, calluna_NiN_type, .group),
+  by = c("age_class", "calluna_NiN_type")
+)
+
+
+#data frame for estimate values from emmeans with all interactions
+pairs(emmeans_lme4_wet_mass)
+contrasts_wet_mass_df <- as.data.frame(pairs(emmeans_lme4_wet_mass))
+head(contrasts_wet_mass_df)
+
+contrasts_wet_mass_df <- contrasts_wet_mass_df |>
+  separate(
+    contrast,
+    into = c("calluna_NiN_type", "age_class"),
+    sep = " - "
+  )
+
+
+names(multicomp_wet_mass_df)
+
+#point plot with error bars -best for visualization and overview
+
+ggplot(
+  multicomp_wet_mass_df,
+  aes(
+    x = age_class,
+    y = mean_wet_mass,
+    colour = calluna_NiN_type,
+    group = calluna_NiN_type
+  )
+) +
+  geom_point(
+    position = position_dodge(0.9),
+    size = 3
+  ) +
+  scale_color_manual(values = NIN) +
+  geom_errorbar(
+    aes(
+      ymin = mean_wet_mass - se_wet_mass,
+      ymax = mean_wet_mass + se_wet_mass
+    ),
+    width = 0.2,
+    position = position_dodge(0.9)
+  ) +
+  geom_text(
+    aes(
+      y = mean_wet_mass + se_wet_mass,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean wet mass (g) of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="Wet mass (g)", fill="NiN type")
+
+
+#Barchart -not so easy to read as it looks like y-axis is counting the height
+ggplot(multicomp_wet_mass_df, 
+       aes(x = age_class, y = mean_wet_mass, group= calluna_NiN_type, fill = calluna_NiN_type,
+           ymin = mean_wet_mass - se_wet_mass, ymax = mean_wet_mass + se_wet_mass)) +
+  geom_col(position = position_dodge(0.9)) +
+  geom_errorbar(position = position_dodge(0.9), width=0.2) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  geom_text(
+    aes(
+      y = mean_wet_mass + se_wet_mass,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean wet mass (g) of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="Wet mass (g)", fill="NiN type")
+
+
+
+#Plot with circles and different levels of significance -showing the size of the estimated differences between the age class and NiN type, a bit to noisy for presenting results
+
+ggplot(contrasts_wet_mass_df,
+       aes(calluna_NiN_type, age_class)) +
+  geom_point(
+    aes(size = abs(estimate),
+        fill = estimate),
+    shape = 21
+  ) +
+  geom_text(
+    aes(label = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01  ~ "**",
+      p.value < 0.05  ~ "*",
+      TRUE ~ ""
+    )),
+    size = 5,
+    nudge_y = 0.2)+
+  theme(
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1,
+      vjust = 1
+    )
+  )+
+  coord_equal()+
+  scale_fill_gradient2(
+    low = "brown",
+    mid = "white",
+    high = "darkgreen",
+    midpoint=0
+  ) 
+
+
+```
+
+```{r}
+#| label: Summary plots for leaf area
+
+
+#dataframe with multicomp, adding significance groups from emmeans
+cld_wet_mass <- cld(
+  emmeans_lme4_wet_mass,
+  adjust = "tukey",
+  Letters = letters
+)
+
+multicomp_wet_mass_df <- left_join(
+  df_sum_wet_mass,
+  cld_wet_mass %>%
+    dplyr::select(age_class, calluna_NiN_type, .group),
+  by = c("age_class", "calluna_NiN_type")
+)
+
+
+#data frame for estimate values from emmeans with all interactions
+pairs(emmeans_lme4_wet_mass)
+contrasts_wet_mass_df <- as.data.frame(pairs(emmeans_lme4_wet_mass))
+head(contrasts_wet_mass_df)
+
+contrasts_wet_mass_df <- contrasts_wet_mass_df |>
+  separate(
+    contrast,
+    into = c("calluna_NiN_type", "age_class"),
+    sep = " - "
+  )
+
+
+names(multicomp_wet_mass_df)
+
+#point plot with error bars -best for visualization and overview
+
+ggplot(
+  multicomp_wet_mass_df,
+  aes(
+    x = age_class,
+    y = mean_wet_mass,
+    colour = calluna_NiN_type,
+    group = calluna_NiN_type
+  )
+) +
+  geom_point(
+    position = position_dodge(0.9),
+    size = 3
+  ) +
+  scale_color_manual(values = NIN) +
+  geom_errorbar(
+    aes(
+      ymin = mean_wet_mass - se_wet_mass,
+      ymax = mean_wet_mass + se_wet_mass
+    ),
+    width = 0.2,
+    position = position_dodge(0.9)
+  ) +
+  geom_text(
+    aes(
+      y = mean_wet_mass + se_wet_mass,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean wet mass (g) of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="Wet mass (g)", fill="NiN type")
+
+
+#Barchart -not so easy to read as it looks like y-axis is counting the height
+ggplot(multicomp_wet_mass_df, 
+       aes(x = age_class, y = mean_wet_mass, group= calluna_NiN_type, fill = calluna_NiN_type,
+           ymin = mean_wet_mass - se_wet_mass, ymax = mean_wet_mass + se_wet_mass)) +
+  geom_col(position = position_dodge(0.9)) +
+  geom_errorbar(position = position_dodge(0.9), width=0.2) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  geom_text(
+    aes(
+      y = mean_wet_mass + se_wet_mass,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean wet mass (g) of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="Wet mass (g)", fill="NiN type")
+
+
+
+#Plot with circles and different levels of significance -showing the size of the estimated differences between the age class and NiN type, a bit to noisy for presenting results
+
+ggplot(contrasts_wet_mass_df,
+       aes(calluna_NiN_type, age_class)) +
+  geom_point(
+    aes(size = abs(estimate),
+        fill = estimate),
+    shape = 21
+  ) +
+  geom_text(
+    aes(label = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01  ~ "**",
+      p.value < 0.05  ~ "*",
+      TRUE ~ ""
+    )),
+    size = 5,
+    nudge_y = 0.2)+
+  theme(
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1,
+      vjust = 1
+    )
+  )+
+  coord_equal()+
+  scale_fill_gradient2(
+    low = "brown",
+    mid = "white",
+    high = "darkgreen",
+    midpoint=0
+  ) 
+
+
+
+```
+
+```{r}
+#| label: Summary plots for leaf thickness
+
+
+#dataframe with multicomp, adding significance groups from emmeans
+cld_wet_mass <- cld(
+  emmeans_lme4_wet_mass,
+  adjust = "tukey",
+  Letters = letters
+)
+
+multicomp_wet_mass_df <- left_join(
+  df_sum_wet_mass,
+  cld_wet_mass %>%
+    dplyr::select(age_class, calluna_NiN_type, .group),
+  by = c("age_class", "calluna_NiN_type")
+)
+
+
+#data frame for estimate values from emmeans with all interactions
+pairs(emmeans_lme4_wet_mass)
+contrasts_wet_mass_df <- as.data.frame(pairs(emmeans_lme4_wet_mass))
+head(contrasts_wet_mass_df)
+
+contrasts_wet_mass_df <- contrasts_wet_mass_df |>
+  separate(
+    contrast,
+    into = c("calluna_NiN_type", "age_class"),
+    sep = " - "
+  )
+
+
+names(multicomp_wet_mass_df)
+
+#point plot with error bars -best for visualization and overview
+
+ggplot(
+  multicomp_wet_mass_df,
+  aes(
+    x = age_class,
+    y = mean_wet_mass,
+    colour = calluna_NiN_type,
+    group = calluna_NiN_type
+  )
+) +
+  geom_point(
+    position = position_dodge(0.9),
+    size = 3
+  ) +
+  scale_color_manual(values = NIN) +
+  geom_errorbar(
+    aes(
+      ymin = mean_wet_mass - se_wet_mass,
+      ymax = mean_wet_mass + se_wet_mass
+    ),
+    width = 0.2,
+    position = position_dodge(0.9)
+  ) +
+  geom_text(
+    aes(
+      y = mean_wet_mass + se_wet_mass,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean wet mass (g) of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="Wet mass (g)", fill="NiN type")
+
+
+#Barchart -not so easy to read as it looks like y-axis is counting the height
+ggplot(multicomp_wet_mass_df, 
+       aes(x = age_class, y = mean_wet_mass, group= calluna_NiN_type, fill = calluna_NiN_type,
+           ymin = mean_wet_mass - se_wet_mass, ymax = mean_wet_mass + se_wet_mass)) +
+  geom_col(position = position_dodge(0.9)) +
+  geom_errorbar(position = position_dodge(0.9), width=0.2) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  geom_text(
+    aes(
+      y = mean_wet_mass + se_wet_mass,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean wet mass (g) of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="Wet mass (g)", fill="NiN type")
+
+
+
+#Plot with circles and different levels of significance -showing the size of the estimated differences between the age class and NiN type, a bit to noisy for presenting results
+
+ggplot(contrasts_wet_mass_df,
+       aes(calluna_NiN_type, age_class)) +
+  geom_point(
+    aes(size = abs(estimate),
+        fill = estimate),
+    shape = 21
+  ) +
+  geom_text(
+    aes(label = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01  ~ "**",
+      p.value < 0.05  ~ "*",
+      TRUE ~ ""
+    )),
+    size = 5,
+    nudge_y = 0.2)+
+  theme(
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1,
+      vjust = 1
+    )
+  )+
+  coord_equal()+
+  scale_fill_gradient2(
+    low = "brown",
+    mid = "white",
+    high = "darkgreen",
+    midpoint=0
+  ) 
+
+
+
+```
+
+```{r}
+#| label: Summary plots for SLA
+
+
+#dataframe with multicomp, adding significance groups from emmeans
+cld_wet_mass <- cld(
+  emmeans_lme4_wet_mass,
+  adjust = "tukey",
+  Letters = letters
+)
+
+multicomp_wet_mass_df <- left_join(
+  df_sum_wet_mass,
+  cld_wet_mass %>%
+    dplyr::select(age_class, calluna_NiN_type, .group),
+  by = c("age_class", "calluna_NiN_type")
+)
+
+
+#data frame for estimate values from emmeans with all interactions
+pairs(emmeans_lme4_wet_mass)
+contrasts_wet_mass_df <- as.data.frame(pairs(emmeans_lme4_wet_mass))
+head(contrasts_wet_mass_df)
+
+contrasts_wet_mass_df <- contrasts_wet_mass_df |>
+  separate(
+    contrast,
+    into = c("calluna_NiN_type", "age_class"),
+    sep = " - "
+  )
+
+
+names(multicomp_wet_mass_df)
+
+#point plot with error bars -best for visualization and overview
+
+ggplot(
+  multicomp_wet_mass_df,
+  aes(
+    x = age_class,
+    y = mean_wet_mass,
+    colour = calluna_NiN_type,
+    group = calluna_NiN_type
+  )
+) +
+  geom_point(
+    position = position_dodge(0.9),
+    size = 3
+  ) +
+  scale_color_manual(values = NIN) +
+  geom_errorbar(
+    aes(
+      ymin = mean_wet_mass - se_wet_mass,
+      ymax = mean_wet_mass + se_wet_mass
+    ),
+    width = 0.2,
+    position = position_dodge(0.9)
+  ) +
+  geom_text(
+    aes(
+      y = mean_wet_mass + se_wet_mass,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean wet mass (g) of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="Wet mass (g)", fill="NiN type")
+
+
+#Barchart -not so easy to read as it looks like y-axis is counting the height
+ggplot(multicomp_wet_mass_df, 
+       aes(x = age_class, y = mean_wet_mass, group= calluna_NiN_type, fill = calluna_NiN_type,
+           ymin = mean_wet_mass - se_wet_mass, ymax = mean_wet_mass + se_wet_mass)) +
+  geom_col(position = position_dodge(0.9)) +
+  geom_errorbar(position = position_dodge(0.9), width=0.2) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  geom_text(
+    aes(
+      y = mean_wet_mass + se_wet_mass,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean wet mass (g) of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="Wet mass (g)", fill="NiN type")
+
+
+
+#Plot with circles and different levels of significance -showing the size of the estimated differences between the age class and NiN type, a bit to noisy for presenting results
+
+ggplot(contrasts_wet_mass_df,
+       aes(calluna_NiN_type, age_class)) +
+  geom_point(
+    aes(size = abs(estimate),
+        fill = estimate),
+    shape = 21
+  ) +
+  geom_text(
+    aes(label = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01  ~ "**",
+      p.value < 0.05  ~ "*",
+      TRUE ~ ""
+    )),
+    size = 5,
+    nudge_y = 0.2)+
+  theme(
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1,
+      vjust = 1
+    )
+  )+
+  coord_equal()+
+  scale_fill_gradient2(
+    low = "brown",
+    mid = "white",
+    high = "darkgreen",
+    midpoint=0
+  ) 
+
+
+
+```
+
+```{r}
+#| label: Summary plots for LDMC
+
+#dataframe with multicomp, adding significance groups from emmeans
+cld_wet_mass <- cld(
+  emmeans_lme4_wet_mass,
+  adjust = "tukey",
+  Letters = letters
+)
+
+multicomp_wet_mass_df <- left_join(
+  df_sum_wet_mass,
+  cld_wet_mass %>%
+    dplyr::select(age_class, calluna_NiN_type, .group),
+  by = c("age_class", "calluna_NiN_type")
+)
+
+
+#data frame for estimate values from emmeans with all interactions
+pairs(emmeans_lme4_wet_mass)
+contrasts_wet_mass_df <- as.data.frame(pairs(emmeans_lme4_wet_mass))
+head(contrasts_wet_mass_df)
+
+contrasts_wet_mass_df <- contrasts_wet_mass_df |>
+  separate(
+    contrast,
+    into = c("calluna_NiN_type", "age_class"),
+    sep = " - "
+  )
+
+
+names(multicomp_wet_mass_df)
+
+#point plot with error bars -best for visualization and overview
+
+ggplot(
+  multicomp_wet_mass_df,
+  aes(
+    x = age_class,
+    y = mean_wet_mass,
+    colour = calluna_NiN_type,
+    group = calluna_NiN_type
+  )
+) +
+  geom_point(
+    position = position_dodge(0.9),
+    size = 3
+  ) +
+  scale_color_manual(values = NIN) +
+  geom_errorbar(
+    aes(
+      ymin = mean_wet_mass - se_wet_mass,
+      ymax = mean_wet_mass + se_wet_mass
+    ),
+    width = 0.2,
+    position = position_dodge(0.9)
+  ) +
+  geom_text(
+    aes(
+      y = mean_wet_mass + se_wet_mass,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean wet mass (g) of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="Wet mass (g)", fill="NiN type")
+
+
+#Barchart -not so easy to read as it looks like y-axis is counting the height
+ggplot(multicomp_wet_mass_df, 
+       aes(x = age_class, y = mean_wet_mass, group= calluna_NiN_type, fill = calluna_NiN_type,
+           ymin = mean_wet_mass - se_wet_mass, ymax = mean_wet_mass + se_wet_mass)) +
+  geom_col(position = position_dodge(0.9)) +
+  geom_errorbar(position = position_dodge(0.9), width=0.2) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  geom_text(
+    aes(
+      y = mean_wet_mass + se_wet_mass,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean wet mass (g) of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="Wet mass (g)", fill="NiN type")
+
+
+
+#Plot with circles and different levels of significance -showing the size of the estimated differences between the age class and NiN type, a bit to noisy for presenting results
+
+ggplot(contrasts_wet_mass_df,
+       aes(calluna_NiN_type, age_class)) +
+  geom_point(
+    aes(size = abs(estimate),
+        fill = estimate),
+    shape = 21
+  ) +
+  geom_text(
+    aes(label = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01  ~ "**",
+      p.value < 0.05  ~ "*",
+      TRUE ~ ""
+    )),
+    size = 5,
+    nudge_y = 0.2)+
+  theme(
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1,
+      vjust = 1
+    )
+  )+
+  coord_equal()+
+  scale_fill_gradient2(
+    low = "brown",
+    mid = "white",
+    high = "darkgreen",
+    midpoint=0
+  ) 
+
+
+
 ```
