@@ -836,8 +836,6 @@ ggplot(cleaned_data, aes(x = SLA, y=calluna_NiN_type, fill=calluna_NiN_type)) +
 
 ```
 
-# 
-
 # Testing for normality
 
 The dependent variable should be approximately normally distributed within each group. While ANOVA is relatively robust to moderate violations of normality, especially with larger sample sizes, extreme departures can affect validity.
@@ -980,7 +978,7 @@ plot(lm_height_cm, which=1)
 
 #Linear model leaf area with interaction of age class and NiN type
 
-#lm_leaf_area <- lm(leaf_area ~ age_class*calluna_NiN_type, data = cleaned_data)
+lm_leaf_area <- lm(leaf_area ~ age_class*calluna_NiN_type, data = cleaned_data)
 #summary(lm_leaf_area)
 
 
@@ -1352,7 +1350,7 @@ t-ratio tells you how many Standard Errors (SE) your group ratio is away from th
 estimate column: means the average difference in i.e for height in cm between groups
 
 ```{r}
-#| label: ANOVA
+#| label: lm ANOVA
 
 #Wet mass
 
@@ -1396,12 +1394,12 @@ cld(emmeans_height_cm, Letters=letters)
 #Leaf area
 
 #```{r, results='asis'}
-#cat("######## Leaf area (mm^2)\n\n")
+cat("######## Leaf area (mm^2)\n\n")
 
-#anova(lm_leaf_area)
+anova(lm_leaf_area)
 
-#(emmeans_leaf_area<- emmeans(lm_leaf_area, ~ age_class * calluna_NiN_type))
-#pairs(emmeans_leaf_area)
+(emmeans_leaf_area<- emmeans(lm_leaf_area, ~ age_class * calluna_NiN_type))
+pairs(emmeans_leaf_area)
 
 #Leaf thickness
 
@@ -1441,7 +1439,7 @@ cld(emmeans_height_cm, Letters=letters)
 TO DO: find out if this is the proper format for testing with lme4 model, anova does not give a Pr value as the degrees of freedom in a mixed model are. ot accurate, so the p-value cannot be precise enough
 
 ```{r}
-#| label: ANOVA
+#| label: lmer ANOVA
 
 #Wet mass
 
@@ -1583,20 +1581,20 @@ qqline(residuals(log_leaf_area), col = "red")
 
 
 #Original SLA for comparison
-qqnorm(residuals(lme4_SLA), main = "Q-Q Plot of Residuals from lme of SLA")
-qqline(residuals(lme4_SLA), col = "red")
-plot(lm_SLA, which = 2) 
-plot(lm_SLA, which = 3)
+#qqnorm(residuals(lme4_SLA), main = "Q-Q Plot of Residuals from lme of SLA")
+#qqline(residuals(lme4_SLA), col = "red")
+#plot(lm_SLA, which = 2) 
+#plot(lm_SLA, which = 3)
 
 #Log transformed SLA
 
-SLA_log_mod <- lmerTest::lmer(log(SLA) ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
-summary(SLA_log_mod)
+#SLA_log_mod <- lmerTest::lmer(log(SLA) ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
+#summary(SLA_log_mod)
 
-qqnorm(residuals(SLA_log_mod), main = "Q-Q Plot of Residuals from log model of SLA")
-qqline(residuals(SLA_log_mod), col = "red")
-plot(SLA_log_mod, which = 2) 
-plot(SLA__log_mod, which = 3)
+#qqnorm(residuals(SLA_log_mod), main = "Q-Q Plot of Residuals from log model of SLA")
+#qqline(residuals(SLA_log_mod), col = "red")
+#plot(SLA_log_mod, which = 2) 
+#plot(SLA__log_mod, which = 3)
 
 #Variance of residuals is slightly lower, but scale plot line not different, decision to stay with original data
 
@@ -1973,6 +1971,8 @@ point_plot_height <- ggplot(
     show.legend = FALSE
   )+ labs(title="Mean vegetative height (cm) of Calluna vulgaris across age class and NiN type",
           x="Age class", y="Height (cm)", fill="NiN type")
+
+point_plot_height
   
 # Save with specific dimensions and high DPI
 ggsave("point_plot_height.png", plot = point_plot_height, width = 7, height = 4, dpi = 300)
@@ -2081,7 +2081,7 @@ names(multicomp_wet_mass_df)
 
 #point plot with error bars -best for visualization and overview
 
-ggplot(
+point_plot_wet_mass <- ggplot(
   multicomp_wet_mass_df,
   aes(
     x = age_class,
@@ -2114,6 +2114,10 @@ ggplot(
   )+ labs(title="Mean wet mass (g) of Calluna vulgaris across age class and NiN type",
           x="Age class", y="Wet mass (g)", fill="NiN type")
 
+point_plot_wet_mass
+
+# Save with specific dimensions and high DPI
+ggsave("point_plot_wet_mass.png", plot = point_plot_height, width = 7, height = 4, dpi = 300)
 
 #Barchart -not so easy to read as it looks like y-axis is counting the height
 ggplot(multicomp_wet_mass_df, 
