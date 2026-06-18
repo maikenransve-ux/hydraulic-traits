@@ -1,7 +1,9 @@
 ---
 title: "DURIN_2026_Plant_Functional_Traits -Hydraulics_Prelimenary analysis"
 author: "Maiken Anabel Ransve"
-format: html
+format:
+  html:
+    embed-resources: true
 editor: visual
 ---
 
@@ -449,13 +451,18 @@ ggplot(data_thickness, aes(x = age_class, y = leaf_thickness, fill = age_class))
   labs(x = "Age class", y = "Leaf thickness (mm)")
 
 
-ggplot(data_thickness, aes(x = calluna_NiN_type, y = leaf_thickness, fill = calluna_NiN_type)) +
+boxplot_leaf_thickness <- ggplot(data_thickness, aes(x = calluna_NiN_type, y = leaf_thickness, fill = calluna_NiN_type)) +
   geom_boxplot(alpha = 0.6, outlier.shape = NA) +
   geom_jitter(width = 0.15, size = 1, alpha = 0.6) +
   facet_wrap(~ age_class) +
   scale_color_manual(values = NIN) +
   scale_fill_manual(values = NIN) +
   labs(x = "NiN type", y = "Leaf thickness (mm)")
+
+boxplot_leaf_thickness
+
+# Save with specific dimensions and high DPI
+ggsave("boxplot_leaf_thickness.png", plot = boxplot_leaf_thickness, width = 7, height = 4, dpi = 300)
 
 # violin plot
 
@@ -471,16 +478,22 @@ ggplot(data_thickness, aes(x = age_class, y = leaf_thickness, fill = age_class))
 # Interactive plot
 
 
-ggplot(df_sum_leaf_thickness, aes(x = age_class, y = mean_leaf_thickness, group = calluna_NiN_type, color = calluna_NiN_type)) +
+interaction_plot_thickness <- ggplot(df_sum_leaf_thickness, aes(x = age_class, y = mean_leaf_thickness, group = calluna_NiN_type, color = calluna_NiN_type)) +
   geom_line() + geom_point(size = 3) +
-  geom_errorbar(aes(ymin = mean_leaf_thickness - se_leaf_thickness, ymax = mean_leaf_thickness + se_leaf_thickness), width = 0.1) +
+  geom_errorbar(aes(ymin = mean_leaf_thickness - se_leaf_thickness, ymax = mean_leaf_thickness + se_leaf_thickness, width = 0.1)) +
   scale_color_manual(values = NIN) +
   scale_fill_manual(values = NIN) +
   labs(
-    x = "Calluna NIN type",
-    y = "Mean leaf thickness (mm)",
-    color = "Age class"
+    x = "Age class",
+    y = "Leaf thickness (mm)",
+    color = "NiN type", title= "Mean leaf thickness (mm) of C. vulgaris against NiN type and age classes"
 )
+
+interaction_plot_thickness
+
+# Save with specific dimensions and high DPI
+ggsave("interaction_plot_thickness.png", plot = interaction_plot_thickness, width = 7, height = 4, dpi = 300)
+
 
 #swapped axis, NiN type on x-axis
 
@@ -490,7 +503,7 @@ ggplot(df_sum_leaf_thickness, aes(x = calluna_NiN_type, y = mean_leaf_thickness,
   scale_color_manual(values = AGE) +
   scale_fill_manual(values = AGE) +
   labs(
-    x = "Calluna NiN type",
+    x = "NiN type",
     y = "Mean leaf thickness (mm)",
     color = "Age class"
 )
@@ -2117,7 +2130,7 @@ point_plot_wet_mass <- ggplot(
 point_plot_wet_mass
 
 # Save with specific dimensions and high DPI
-ggsave("point_plot_wet_mass.png", plot = point_plot_height, width = 7, height = 4, dpi = 300)
+ggsave("point_plot_wet_mass.png", plot = point_plot_wet_mass, width = 7, height = 4, dpi = 300)
 
 #Barchart -not so easy to read as it looks like y-axis is counting the height
 ggplot(multicomp_wet_mass_df, 
@@ -2218,7 +2231,7 @@ names(multicomp_dry_mass_df)
 
 #point plot with error bars -best for visualization and overview
 
-ggplot(
+point_plot_dry_mass <- ggplot(
   multicomp_dry_mass_df,
   aes(
     x = age_class,
@@ -2251,6 +2264,10 @@ ggplot(
   )+ labs(title="Mean dry mass (g) of Calluna vulgaris across age class and NiN type",
           x="Age class", y="Dry mass (g)", fill="NiN type")
 
+point_plot_dry_mass
+
+# Save with specific dimensions and high DPI
+ggsave("point_plot_dry_mass.png", plot = point_plot_dry_mass, width = 7, height = 4, dpi = 300)
 
 #Barchart -not so easy to read as it looks like y-axis is counting the height
 ggplot(multicomp_dry_mass_df, 
@@ -2349,7 +2366,7 @@ names(multicomp_leaf_area_df)
 
 #point plot with error bars -best for visualization and overview
 
-ggplot(
+point_plot_leaf_area <- ggplot(
   multicomp_leaf_area_df,
   aes(
     x = age_class,
@@ -2382,8 +2399,12 @@ ggplot(
   )+ labs(title="Mean leaf area (mm^2) of Calluna vulgaris across age class and NiN type",
           x="Age class", y="Leaf area (mm^2)", fill="NiN type")
 
+point_plot_leaf_area
 
-#Barchart -not so easy to read as it looks like y-axis is counting the height
+# Save with specific dimensions and high DPI
+ggsave("point_plot_leaf_area.png", plot = point_plot_leaf_area, width = 7, height = 4, dpi = 300)
+
+#Barchart 
 ggplot(multicomp_leaf_area_df, 
        aes(x = age_class, y = mean_leaf_area, group= calluna_NiN_type, fill = calluna_NiN_type,
            ymin = mean_leaf_area - se_leaf_area, ymax = mean_leaf_area + se_leaf_area)) +
@@ -2483,7 +2504,7 @@ names(multicomp_leaf_thickness_df)
 
 #point plot with error bars -best for visualization and overview
 
-ggplot(
+point_plot_leaf_thickness <- ggplot(
   multicomp_leaf_thickness_df,
   aes(
     x = age_class,
@@ -2516,6 +2537,11 @@ ggplot(
   )+ labs(title="Mean leaf_thickness (mm) of Calluna vulgaris across age class and NiN type",
           x="Age class", y="Leaf thickness (mm)", fill="NiN type")
 
+point_plot_leaf_thickness
+
+
+# Save with specific dimensions and high DPI
+ggsave("point_plot_leaf_thickness.png", plot = point_plot_leaf_thickness, width = 7, height = 4, dpi = 300)
 
 #Barchart -not so easy to read as it looks like y-axis is counting the height
 ggplot(multicomp_leaf_thickness_df, 
@@ -2617,7 +2643,7 @@ contrasts_SLA_df <- contrasts_SLA_df |>
 
 #point plot with error bars -best for visualization and overview
 
-ggplot(
+point_plot_SLA <- ggplot(
   multicomp_SLA_df,
   aes(
     x = age_class,
@@ -2649,6 +2675,11 @@ ggplot(
     show.legend = FALSE
   )+ labs(title="Mean SLA of Calluna vulgaris across age class and NiN type",
           x="Age class", y="SLA", fill="NiN type")
+point_plot_SLA
+
+
+# Save with specific dimensions and high DPI
+ggsave("point_plot_SLA.png", plot = point_plot_SLA, width = 7, height = 4, dpi = 300)
 
 
 #Barchart -not so easy to read as it looks like y-axis is counting the height
@@ -2747,11 +2778,10 @@ contrasts_LDMC_df <- contrasts_LDMC_df |>
   )
 
 
-names(multicomp_LDMC_df)
 
 #point plot with error bars -best for visualization and overview
 
-ggplot(
+point_plot_LDMC <- ggplot(
   multicomp_LDMC_df,
   aes(
     x = age_class,
@@ -2783,6 +2813,10 @@ ggplot(
     show.legend = FALSE
   )+ labs(title="Mean LDMC of Calluna vulgaris across age class and NiN type",
           x="Age class", y="LDMC", fill="NiN type")
+point_plot_LDMC
+
+# Save with specific dimensions and high DPI
+ggsave("point_plot_LDMC.png", plot = point_plot_LDMC, width = 7, height = 4, dpi = 300)
 
 
 #Barchart -not so easy to read as it looks like y-axis is counting the height
