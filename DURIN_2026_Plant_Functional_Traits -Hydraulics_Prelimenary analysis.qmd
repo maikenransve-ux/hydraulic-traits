@@ -23,6 +23,7 @@ library(ggplot2)
 library(ggridges) #Moving density plots
 library(rstatix)
 library(car)
+library(performance) #checking model normality, homogeneity, variance
 library(emmeans) #Post hoc testing
 library(afex) #linear mixed models
 library(lme4) #linear mixed models
@@ -34,6 +35,7 @@ library(factoextra) #PCA biplot
 library(corrplot)
 library(vegan) #RDA analysis
 library(ggrepel) #RDA plot making
+library(ggbeeswarm)
 
 
 theme_set(theme_bw())
@@ -1216,6 +1218,8 @@ plot(lme4_wet_mass, which=2)
 qq_wet_mass_lme4 <- qqnorm(residuals(lme4_wet_mass), main = "Q-Q Plot of lme Residuals of Wet mass")
 qqline(residuals(lme4_wet_mass), col = "red")
 
+check_model(lme4_wet_mass)
+
 #Scale plot suggests mild heteroscedasticity with variance increasing slighlty with the mean
 #Checking unusual values that may be genuine biological outliers in their group or misplaced decimal points, unit conversion mistakes, impossible values, transcription errors
 #Find out if the same rows have unusual values for more traits, suggests real biological variation
@@ -1248,6 +1252,7 @@ plot(lme4_dry_mass)
 qq_dry_mass_lme4 <- qqnorm(residuals(lme4_dry_mass), main = "Q-Q Plot of Residuals from lme of Dry mass")
 qqline(residuals(lme4_dry_mass), col = "red")
 
+check_model(lme4_dry_mass)
 #Scale plot suggests mild heteroscedasticity with variance increasing slighlty with the mean
 
 
@@ -1260,7 +1265,9 @@ qqline(residuals(lme4_dry_mass), col = "red")
 
 ###### Leaf area
 
-lme4_leaf_area <- lmerTest::lmer(leaf_area ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
+lme4_leaf_area <- lmerTest::lmer(leaf_area ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data)
+
+update(lme4_dry_mass, formula = leaf_area ~ .)
 
 summary(lme4_leaf_area)  
 plot(lme4_leaf_area)
@@ -1269,9 +1276,8 @@ qq_leaf_area_lme4 <- qqnorm(residuals(lme4_leaf_area), main = "Q-Q Plot of Resid
 qqline(residuals(lme4_leaf_area), col = "red")
 
 
-
-
-
+check_model(lme4_leaf_area)
+check_model(lme4_dry_mass)
 
 ###### Leaf thickness
 
@@ -1647,6 +1653,10 @@ corr <- cor(cleaned_data[, c(
 
 round(corr, 2)
 
+
+```
+
+```{r}
 #Trait correlation network
 corrplot(corr)
 
@@ -1689,7 +1699,9 @@ traits_compiled <- na.omit(traits_compiled)
 pca <- prcomp(traits_compiled, scale. = TRUE)
 
 summary(pca)
+```
 
+```{r}
 #Plotting PCA results
 
 traits_NiN_age <- cleaned_data[, c(
@@ -2088,6 +2100,7 @@ contrasts_wet_mass_df <- contrasts_wet_mass_df |>
     into = c("calluna_NiN_type", "age_class"),
     sep = " - "
   )
+
 
 
 names(multicomp_wet_mass_df)
@@ -2513,6 +2526,11 @@ point_plot_leaf_thickness <- ggplot(
     group = calluna_NiN_type
   )
 ) +
+  geom_line(
+    colour = "grey70",
+    linewidth = 0.6,
+    position=position_dodge(width = 0.9)
+  ) +
   geom_point(
     position = position_dodge(0.9),
     size = 3
@@ -2534,7 +2552,7 @@ point_plot_leaf_thickness <- ggplot(
     position = position_dodge(0.9),
     vjust=-0.5,
     show.legend = FALSE
-  )+ labs(title="Mean leaf_thickness (mm) of Calluna vulgaris across age class and NiN type",
+  )+ labs(title="Mean leaf thickness (mm) of C. vulgaris across age class and NiN type",
           x="Age class", y="Leaf thickness (mm)", fill="NiN type")
 
 point_plot_leaf_thickness
@@ -2652,6 +2670,11 @@ point_plot_SLA <- ggplot(
     group = calluna_NiN_type
   )
 ) +
+  geom_line(
+    colour = "grey70",
+    linewidth = 0.6,
+    position=position_dodge(width = 0.9)
+  ) +
   geom_point(
     position = position_dodge(0.9),
     size = 3
@@ -2738,7 +2761,7 @@ ggplot(contrasts_SLA_df,
   ) 
 
 
-
+library(ggp)
 
 ```
 
@@ -2882,6 +2905,40 @@ ggplot(contrasts_LDMC_df,
 ```{r}
 #| label: SLA and LDMC relationship
 
+
+
+```
+
+```{r}
+#| label: beeswarm plots for height raw data with overlay of statistical tests
+
+
+
+```
+
+```{r}
+#| label: beeswarm plots for wet mass raw data with overlay of statistical tests
+
+ggplot(cleaned_data, aes(x = age_class, y = wet_mass, color=calluna_NiN_type)) +
+  geom_quasirandom(dodge.width = 1, 
+                   alpha = 0.5,
+                   width = 0.15)+
+geom_pointrange(data=cld_wet_mass, 
+                aes(x=age_class, y=emmean, ymin=lower.CL, ymax=upper.CL, group=calluna_NiN_type), 
+                color="black",
+                size=0.6,
+                fatten=2,
+                position=position_dodge(width=1))+
+  geom_text(
+    data = cld_wet_mass,
+    aes(y = upper.CL, label = .group),       # Places letters just above upper CL
+    position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    vjust = -0.5,                             # Nudges letters slightly upward
+    color = "black",
+    show.legend = FALSE
+  ) +
+  scale_color_manual(values = NIN) +
+  labs(x="Age class", y="Wet mass (g)", title="Mean leaf wet mass (g) of C. vulgaris across age class and NiN types")
 
 
 ```
