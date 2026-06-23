@@ -1579,7 +1579,7 @@ log_leaf_area <- lmerTest::lmer(log(leaf_area) ~ age_class*calluna_NiN_type + (1
 plot(log_leaf_area)
 qq_leaf_area_log <- qqnorm(residuals(log_leaf_area), main = "Q-Q Plot of Residuals from log transformed leaf area")
 qqline(residuals(log_leaf_area), col = "red")
-check_model(leaf_area_log_mod)
+check_model(log_leaf_area)
 
 
 #Residuals are slightly better fitted to line when log transformed, fanning out effect is reduced (less fanning out of the spread as predicted values increase, variance is more constant with log transformation), but the effect 
@@ -1879,6 +1879,393 @@ ggplot(species_df, aes(RDA1, RDA2)) +
 
 ```
 
+# Presenting results wet mass
+
+```{r}
+#| label: Plots to visualize wet mass emmeans output and dataframes for other plots
+
+
+emmip(emmeans_lme4_wet_mass, calluna_NiN_type ~ age_class, CIs=TRUE) #If confidence intervals are largely overlapping it is more likely the groups are not siginficantly different
+plot(emmeans_lme4_wet_mass, comparisons=TRUE) #These red arrows are specially calculated so that any overlap means "not significant" and no overlap means "significant."
+
+
+
+#dataframe with multicomp, adding significance groups from emmeans
+cld_wet_mass <- cld(
+  emmeans_lme4_wet_mass,
+  adjust = "tukey",
+  Letters = letters
+)
+
+multicomp_wet_mass_df <- left_join(
+  df_sum_wet_mass,
+  cld_wet_mass %>%
+    dplyr::select(age_class, calluna_NiN_type, .group),
+  by = c("age_class", "calluna_NiN_type")
+)
+
+
+#data frame for estimate values from emmeans with all interactions
+pairs(emmeans_lme4_wet_mass)
+contrasts_wet_mass_df <- as.data.frame(pairs(emmeans_lme4_wet_mass))
+head(contrasts_wet_mass_df)
+
+contrasts_wet_mass_df <- contrasts_wet_mass_df |>
+  separate(
+    contrast,
+    into = c("calluna_NiN_type", "age_class"),
+    sep = " - "
+  )
+```
+
+```{r}
+#| label: point plot with error bars for wet mass 
+
+point_plot_wet_mass <- ggplot(
+  multicomp_wet_mass_df,
+  aes(
+    x = age_class,
+    y = mean_wet_mass,
+    colour = calluna_NiN_type,
+    group = calluna_NiN_type
+  )
+) +
+  geom_point(
+    position = position_dodge(0.9),
+    size = 3
+  ) +
+  scale_color_manual(values = NIN) +
+  geom_errorbar(
+    aes(
+      ymin = mean_wet_mass - se_wet_mass,
+      ymax = mean_wet_mass + se_wet_mass
+    ),
+    width = 0.2,
+    position = position_dodge(0.9)
+  ) +
+  geom_text(
+    aes(
+      y = mean_wet_mass + se_wet_mass,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean wet mass (g) of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="Wet mass (g)", fill="NiN type")
+
+point_plot_wet_mass
+
+# Save with specific dimensions and high DPI
+ggsave("point_plot_wet_mass.png", plot = point_plot_wet_mass, width = 7, height = 4, dpi = 300)
+```
+
+```{r}
+#| label: Barchart wet mass
+
+ggplot(multicomp_wet_mass_df, 
+       aes(x = age_class, y = mean_wet_mass, group= calluna_NiN_type, fill = calluna_NiN_type,
+           ymin = mean_wet_mass - se_wet_mass, ymax = mean_wet_mass + se_wet_mass)) +
+  geom_col(position = position_dodge(0.9)) +
+  geom_errorbar(position = position_dodge(0.9), width=0.2) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  geom_text(
+    aes(
+      y = mean_wet_mass + se_wet_mass,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean wet mass (g) of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="Wet mass (g)", fill="NiN type")
+```
+
+```{r}
+#| label: Plot with circles and different levels of significance wet mass
+#showing the size of the estimated differences between the age class and NiN type, a bit to noisy for presenting results
+
+ggplot(contrasts_wet_mass_df,
+       aes(calluna_NiN_type, age_class)) +
+  geom_point(
+    aes(size = abs(estimate),
+        fill = estimate),
+    shape = 21
+  ) +
+  geom_text(
+    aes(label = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01  ~ "**",
+      p.value < 0.05  ~ "*",
+      TRUE ~ ""
+    )),
+    size = 5,
+    nudge_y = 0.2)+
+  theme(
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1,
+      vjust = 1
+    )
+  )+
+  labs(title="Mean wet mass (g) of Calluna vulgaris across age class and NiN type")+
+  coord_equal()+
+  scale_fill_gradient2(
+    low = "brown",
+    mid = "white",
+    high = "darkgreen",
+    midpoint=0
+  )
+```
+
+```{r}
+#| label: beeswarm/ quasirandom plots for wet mass raw data with overlay of statistical tests
+
+
+#Place letters above the tallest datapoint in each age class
+
+
+cld_wet_mass <- cld_wet_mass %>%
+  mutate(
+    label_y = case_when(
+      age_class == "Pioneer"  ~ 0.0070,
+      age_class == "Building" ~ 0.0070,
+      age_class == "Mature"   ~ 0.0070
+    )
+  )
+
+
+ggplot(cleaned_data, aes(x = age_class, y = wet_mass, color=calluna_NiN_type)) +
+   geom_quasirandom(dodge.width = 1, 
+                        alpha = 0.35,
+                        size = 1.8,
+                        width = 0.15)+
+  geom_violin(
+    aes(fill = calluna_NiN_type),
+    position = position_dodge(width = 1),
+    alpha = 0.15,
+    trim = TRUE,
+    scale = "width"
+  ) +
+  scale_fill_manual(values = NIN) +
+geom_pointrange(data=cld_wet_mass, 
+                 aes(x=age_class, y=emmean, ymin=lower.CL, ymax=upper.CL, group=calluna_NiN_type), 
+                color="black",
+                size=0.8,
+                fatten=2,
+                position=position_dodge(width=1))+
+   geom_text(
+     data = cld_wet_mass,
+     aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+     position = position_dodge(width = 1),   # Aligns letters with the pointranges
+     vjust = -0.5,                             # Nudges letters slightly upward
+     color = "black",
+     fontface= "bold",
+     show.legend = FALSE
+  )+
+   scale_color_manual(values = NIN) +
+   labs(x="Age class", y="Wet mass (g)", title="Mean leaf wet mass (g) of C. vulgaris across age class and NiN types", color="NiN type")+
+  scale_y_continuous(
+    expand = expansion(mult = c(0.02, 0.15))
+  )+
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  )
+
+
+#Without violins
+ggplot(cleaned_data, aes(x = age_class, y = wet_mass, color=calluna_NiN_type)) +
+  geom_quasirandom(dodge.width = 1, 
+                   alpha = 0.35,
+                   size = 1.8,
+                   width = 0.15)+
+  geom_pointrange(data=cld_wet_mass, 
+                  aes(x=age_class, y=emmean, ymin=lower.CL, ymax=upper.CL, group=calluna_NiN_type), 
+                  color="black",
+                  size=0.8,
+                  fatten=2,
+                  position=position_dodge(width=1))+
+  geom_text(
+    data = cld_wet_mass,
+    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+    position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    vjust = -0.5,                             # Nudges letters slightly upward
+    color = "black",
+    fontface= "bold",
+    show.legend = FALSE
+  )+
+  scale_color_manual(values = NIN) +
+  labs(x="Age class", y="Wet mass (g)", title="Mean leaf wet mass (g) of C. vulgaris across age class and NiN types", color="NiN type")+
+  scale_y_continuous(
+    expand = expansion(mult = c(0.02, 0.15))
+  )+
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  )
+
+#Violin + boxplot
+
+ggplot(cleaned_data, aes(x = age_class, y = wet_mass, color=calluna_NiN_type)) +
+  geom_quasirandom(dodge.width = 1, 
+                   alpha = 0.35,
+                   size = 1.8,
+                   width = 0.15)+
+  geom_boxplot(alpha = 0.35,
+               width = 0.5,
+               position = position_dodge(width=1))+
+  geom_violin(
+    aes(fill = calluna_NiN_type),
+    position = position_dodge(width = 1),
+    alpha = 0.15,
+    trim = TRUE,
+    scale = "width"
+  ) +
+  scale_fill_manual(values = NIN) +
+  geom_pointrange(data=cld_wet_mass, 
+                  aes(x=age_class, y=emmean, ymin=lower.CL, ymax=upper.CL, group=calluna_NiN_type), 
+                  color="black",
+                  size=0.8,
+                  fatten=2,
+                  position=position_dodge(width=1))+
+  geom_text(
+    data = cld_wet_mass,
+    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+    position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    vjust = -0.5,                             # Nudges letters slightly upward
+    color = "black",
+    fontface= "bold",
+    show.legend = FALSE
+  )+
+  scale_color_manual(values = NIN) +
+  labs(x="Age class", y="Wet mass (g)", title="Mean leaf wet mass (g) of C. vulgaris across age class and NiN types", color="NiN type")+
+  scale_y_continuous(
+    expand = expansion(mult = c(0.02, 0.15))
+  )+
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  )
+```
+
+Best visuals so far, using this in the report for the ither traits as well, the violin is a nice visual to see the spread of the points, but it looks a bit messy with boxplot and violin together, the boxplot gives more information
+
+```{r}
+#| label: With Boxplot, removing pointrange
+
+
+
+ggp1 <-ggplot(cleaned_data, aes(x = age_class, y = wet_mass, color=calluna_NiN_type)) +
+  geom_quasirandom(dodge.width = 1, 
+                   alpha = 0.35,
+                   size = 1.8,
+                   width = 0.15)+
+  geom_boxplot(aes(fill = calluna_NiN_type, group= interaction(age_class, calluna_NiN_type)),
+               color = "grey23",
+               alpha = 0.35,
+               width = 0.5,
+               position = position_dodge(width=1)
+              )+
+  geom_text(
+    data = cld_wet_mass,
+    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+    position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    vjust = -0.5,                             # Nudges letters slightly upward
+    color = "black",
+    fontface= "bold",
+    show.legend = FALSE
+  )+
+scale_color_manual(values = NIN, name = "NiN type") +
+scale_fill_manual(values = NIN, name = "NiN type") +
+  labs(x="Age class", y="Wet mass (g)", title="Mean leaf wet mass (g) of C. vulgaris across age class and NiN types", color="NiN type")+
+  scale_y_continuous(
+    expand = expansion(mult = c(0.02, 0.15))
+  )+
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  )
+
+ggp1
+
+```
+
+```{r}
+#| label: violin and boxplot without pointrange
+
+ggplot(cleaned_data, aes(x = age_class, y = wet_mass, color=calluna_NiN_type)) +
+  geom_quasirandom(dodge.width = 1, 
+                   alpha = 0.35,
+                   size = 1.8,
+                   width = 0.15)+
+  geom_boxplot(alpha = 0.35,
+               width = 0.5,
+               position = position_dodge(width=1))+
+  geom_violin(
+    aes(fill = calluna_NiN_type),
+    position = position_dodge(width = 1),
+    alpha = 0.15,
+    trim = TRUE,
+    scale = "width"
+  ) +
+  geom_text(
+    data = cld_wet_mass,
+    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+    position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    vjust = -0.5,                             # Nudges letters slightly upward
+    color = "black",
+    fontface= "bold",
+    show.legend = FALSE
+  )+
+scale_color_manual(values = NIN, name = "NiN type") +
+scale_fill_manual(values = NIN, name = "NiN type") +
+  labs(x="Age class", y="Wet mass (g)", title="Mean leaf wet mass (g) of C. vulgaris across age class and NiN types", color="NiN type")+
+  scale_y_continuous(
+    expand = expansion(mult = c(0.02, 0.15))
+  )+
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  )
+```
+
+```{r}
+#| label: Another boxplot
+
+
+ggplot(cleaned_data, aes(x = age_class, y = wet_mass, color=calluna_NiN_type)) +
+  geom_quasirandom(dodge.width = 1, 
+                   alpha = 0.35,
+                   size = 1.8,
+                   width = 0.15)+
+  geom_boxplot(aes(group= interaction(age_class, calluna_NiN_type)),
+               alpha = 0.35,
+               width = 0.5,
+               position = position_dodge(width=1)
+  )+
+  geom_text(
+    data = cld_wet_mass,
+    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+    position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    vjust = -0.5,                             # Nudges letters slightly upward
+    color = "black",
+    fontface= "bold",
+    show.legend = FALSE
+  )+
+  scale_color_manual(values = NIN) +
+  labs(x="Age class", y="Wet mass (g)", title="Mean leaf wet mass (g) of C. vulgaris across age class and NiN types", color="NiN type")+
+  scale_y_continuous(
+    expand = expansion(mult = c(0.02, 0.15))
+  )+
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  )
+
+```
+
 # Presenting results height
 
 Comparing results of emmeans post-hoc test, for visualizing the magnitude and direction of differences between group means
@@ -2034,154 +2421,51 @@ ggplot(contrasts_height_df,
     mid = "white",
     high = "darkgreen",
     midpoint=0
-  ) 
-
-
-
-```
-
-# Presenting results wet mass
-
-```{r}
-#| label: Plots to visualize wet mass emmeans output and dataframes for other plots
-
-
-emmip(emmeans_lme4_wet_mass, calluna_NiN_type ~ age_class, CIs=TRUE) #If confidence intervals are largely overlapping it is more likely the groups are not siginficantly different
-plot(emmeans_lme4_wet_mass, comparisons=TRUE) #These red arrows are specially calculated so that any overlap means "not significant" and no overlap means "significant."
-
-
-
-#dataframe with multicomp, adding significance groups from emmeans
-cld_wet_mass <- cld(
-  emmeans_lme4_wet_mass,
-  adjust = "tukey",
-  Letters = letters
-)
-
-multicomp_wet_mass_df <- left_join(
-  df_sum_wet_mass,
-  cld_wet_mass %>%
-    dplyr::select(age_class, calluna_NiN_type, .group),
-  by = c("age_class", "calluna_NiN_type")
-)
-
-
-#data frame for estimate values from emmeans with all interactions
-pairs(emmeans_lme4_wet_mass)
-contrasts_wet_mass_df <- as.data.frame(pairs(emmeans_lme4_wet_mass))
-head(contrasts_wet_mass_df)
-
-contrasts_wet_mass_df <- contrasts_wet_mass_df |>
-  separate(
-    contrast,
-    into = c("calluna_NiN_type", "age_class"),
-    sep = " - "
   )
 ```
 
-```{r}
-#| label: point plot with error bars for wet mass 
 
-point_plot_wet_mass <- ggplot(
-  multicomp_wet_mass_df,
-  aes(
-    x = age_class,
-    y = mean_wet_mass,
-    colour = calluna_NiN_type,
-    group = calluna_NiN_type
-  )
-) +
-  geom_point(
-    position = position_dodge(0.9),
-    size = 3
-  ) +
-  scale_color_manual(values = NIN) +
-  geom_errorbar(
-    aes(
-      ymin = mean_wet_mass - se_wet_mass,
-      ymax = mean_wet_mass + se_wet_mass
-    ),
-    width = 0.2,
-    position = position_dodge(0.9)
-  ) +
+```{r}
+#| label: ggp1 plot height
+
+ggp2 <- ggp1 + ggplot(aes(y = height_cm)) + geom_text(date = cld_height) + labs(y= "Height (cm)", title = "Mean height (cm) of C. vulgaris across age class and NiN type")
+  
+ggp2
+  
+  
+  ggp1 <-ggplot(cleaned_data, aes(x = age_class, y = wet_mass, color=calluna_NiN_type)) +
+  geom_quasirandom(dodge.width = 1, 
+                   alpha = 0.35,
+                   size = 1.8,
+                   width = 0.15)+
+  geom_boxplot(aes(fill = calluna_NiN_type, group= interaction(age_class, calluna_NiN_type)),
+               color = "grey23",
+               alpha = 0.35,
+               width = 0.5,
+               position = position_dodge(width=1)
+              )+
   geom_text(
-    aes(
-      y = mean_wet_mass + se_wet_mass,
-      label = .group
-    ),
-    position = position_dodge(0.9),
-    vjust=-0.5,
+    data = cld_wet_mass,
+    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+    position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    vjust = -0.5,                             # Nudges letters slightly upward
+    color = "black",
+    fontface= "bold",
     show.legend = FALSE
-  )+ labs(title="Mean wet mass (g) of Calluna vulgaris across age class and NiN type",
-          x="Age class", y="Wet mass (g)", fill="NiN type")
-
-point_plot_wet_mass
-
-# Save with specific dimensions and high DPI
-ggsave("point_plot_wet_mass.png", plot = point_plot_wet_mass, width = 7, height = 4, dpi = 300)
-```
-
-```{r}
-#| label: Barchart wet mass
-
-ggplot(multicomp_wet_mass_df, 
-       aes(x = age_class, y = mean_wet_mass, group= calluna_NiN_type, fill = calluna_NiN_type,
-           ymin = mean_wet_mass - se_wet_mass, ymax = mean_wet_mass + se_wet_mass)) +
-  geom_col(position = position_dodge(0.9)) +
-  geom_errorbar(position = position_dodge(0.9), width=0.2) +
-  scale_color_manual(values = NIN) +
-  scale_fill_manual(values = NIN) +
-  geom_text(
-    aes(
-      y = mean_wet_mass + se_wet_mass,
-      label = .group
-    ),
-    position = position_dodge(0.9),
-    vjust=-0.5,
-    show.legend = FALSE
-  )+ labs(title="Mean wet mass (g) of Calluna vulgaris across age class and NiN type",
-          x="Age class", y="Wet mass (g)", fill="NiN type")
-```
-
-```{r}
-#| label: Plot with circles and different levels of significance wet mass
-#showing the size of the estimated differences between the age class and NiN type, a bit to noisy for presenting results
-
-ggplot(contrasts_wet_mass_df,
-       aes(calluna_NiN_type, age_class)) +
-  geom_point(
-    aes(size = abs(estimate),
-        fill = estimate),
-    shape = 21
-  ) +
-  geom_text(
-    aes(label = case_when(
-      p.value < 0.001 ~ "***",
-      p.value < 0.01  ~ "**",
-      p.value < 0.05  ~ "*",
-      TRUE ~ ""
-    )),
-    size = 5,
-    nudge_y = 0.2)+
-  theme(
-    axis.text.x = element_text(
-      angle = 45,
-      hjust = 1,
-      vjust = 1
-    )
   )+
-  labs(title="Mean wet mass (g) of Calluna vulgaris across age class and NiN type")+
-  coord_equal()+
-  scale_fill_gradient2(
-    low = "brown",
-    mid = "white",
-    high = "darkgreen",
-    midpoint=0
-  ) 
-
-
-
+scale_color_manual(values = NIN, name = "NiN type") +
+scale_fill_manual(values = NIN, name = "NiN type") +
+  labs(x="Age class", y="Wet mass (g)", title="Mean leaf wet mass (g) of C. vulgaris across age class and NiN types", color="NiN type")+
+  scale_y_continuous(
+    expand = expansion(mult = c(0.02, 0.15))
+  )+
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  )
 ```
+
+
 
 # Presenting results dry mass
 
@@ -2902,197 +3186,6 @@ ggplot(contrasts_LDMC_df,
 
 ```{r}
 #| label: SLA and LDMC relationship
-
-
-
-```
-
-```{r}
-#| label: beeswarm plots for height raw data with overlay of statistical tests
-
-
-
-```
-
-```{r}
-#| label: beeswarm/ quasirandom plots for wet mass raw data with overlay of statistical tests
-
-#Place letters above the tallest datapoint in each age class
-
-
-cld_wet_mass <- cld_wet_mass %>%
-  mutate(
-    label_y = case_when(
-      age_class == "Pioneer"  ~ 0.0070,
-      age_class == "Building" ~ 0.0070,
-      age_class == "Mature"   ~ 0.0070
-    )
-  )
-
-
-ggplot(cleaned_data, aes(x = age_class, y = wet_mass, color=calluna_NiN_type)) +
-   geom_quasirandom(dodge.width = 1, 
-                        alpha = 0.35,
-                        size = 1.8,
-                        width = 0.15)+
-  geom_violin(
-    aes(fill = calluna_NiN_type),
-    position = position_dodge(width = 1),
-    alpha = 0.15,
-    trim = TRUE,
-    scale = "width"
-  ) +
-  scale_fill_manual(values = NIN) +
-geom_pointrange(data=cld_wet_mass, 
-                 aes(x=age_class, y=emmean, ymin=lower.CL, ymax=upper.CL, group=calluna_NiN_type), 
-                color="black",
-                size=0.8,
-                fatten=2,
-                position=position_dodge(width=1))+
-   geom_text(
-     data = cld_wet_mass,
-     aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
-     position = position_dodge(width = 1),   # Aligns letters with the pointranges
-     vjust = -0.5,                             # Nudges letters slightly upward
-     color = "black",
-     fontface= "bold",
-     show.legend = FALSE
-  )+
-   scale_color_manual(values = NIN) +
-   labs(x="Age class", y="Wet mass (g)", title="Mean leaf wet mass (g) of C. vulgaris across age class and NiN types", color="NiN type")+
-  scale_y_continuous(
-    expand = expansion(mult = c(0.02, 0.15))
-  )+
-  theme(
-    panel.grid.minor = element_blank(),
-    panel.grid.major.x = element_blank()
-  )
-
-
-#Without violins
-ggplot(cleaned_data, aes(x = age_class, y = wet_mass, color=calluna_NiN_type)) +
-  geom_quasirandom(dodge.width = 1, 
-                   alpha = 0.35,
-                   size = 1.8,
-                   width = 0.15)+
-  geom_pointrange(data=cld_wet_mass, 
-                  aes(x=age_class, y=emmean, ymin=lower.CL, ymax=upper.CL, group=calluna_NiN_type), 
-                  color="black",
-                  size=0.8,
-                  fatten=2,
-                  position=position_dodge(width=1))+
-  geom_text(
-    data = cld_wet_mass,
-    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
-    position = position_dodge(width = 1),   # Aligns letters with the pointranges
-    vjust = -0.5,                             # Nudges letters slightly upward
-    color = "black",
-    fontface= "bold",
-    show.legend = FALSE
-  )+
-  scale_color_manual(values = NIN) +
-  labs(x="Age class", y="Wet mass (g)", title="Mean leaf wet mass (g) of C. vulgaris across age class and NiN types", color="NiN type")+
-  scale_y_continuous(
-    expand = expansion(mult = c(0.02, 0.15))
-  )+
-  theme(
-    panel.grid.minor = element_blank(),
-    panel.grid.major.x = element_blank()
-  )
-
-#Violin + boxplot
-
-ggplot(cleaned_data, aes(x = age_class, y = wet_mass, color=calluna_NiN_type)) +
-  geom_quasirandom(dodge.width = 1, 
-                   alpha = 0.35,
-                   size = 1.8,
-                   width = 0.15)+
-  geom_boxplot(alpha = 0.35,
-               width = 0.5,
-               position = position_dodge(width=1))+
-  geom_violin(
-    aes(fill = calluna_NiN_type),
-    position = position_dodge(width = 1),
-    alpha = 0.15,
-    trim = TRUE,
-    scale = "width"
-  ) +
-  scale_fill_manual(values = NIN) +
-  geom_pointrange(data=cld_wet_mass, 
-                  aes(x=age_class, y=emmean, ymin=lower.CL, ymax=upper.CL, group=calluna_NiN_type), 
-                  color="black",
-                  size=0.8,
-                  fatten=2,
-                  position=position_dodge(width=1))+
-  geom_text(
-    data = cld_wet_mass,
-    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
-    position = position_dodge(width = 1),   # Aligns letters with the pointranges
-    vjust = -0.5,                             # Nudges letters slightly upward
-    color = "black",
-    fontface= "bold",
-    show.legend = FALSE
-  )+
-  scale_color_manual(values = NIN) +
-  labs(x="Age class", y="Wet mass (g)", title="Mean leaf wet mass (g) of C. vulgaris across age class and NiN types", color="NiN type")+
-  scale_y_continuous(
-    expand = expansion(mult = c(0.02, 0.15))
-  )+
-  theme(
-    panel.grid.minor = element_blank(),
-    panel.grid.major.x = element_blank()
-  )
-```
-
-Best visuals so far
-
-```{r}
-#| label: With Boxplot, removing pointrange
-
-ggplot(cleaned_data, aes(x = age_class, y = wet_mass, color=calluna_NiN_type)) +
-  geom_quasirandom(dodge.width = 1, 
-                   alpha = 0.35,
-                   size = 1.8,
-                   width = 0.15)+
-  geom_boxplot(alpha = 0.35,
-               width = 0.5,
-               position = position_dodge(width=1)
-              )+
-  geom_text(
-    data = cld_wet_mass,
-    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
-    position = position_dodge(width = 1),   # Aligns letters with the pointranges
-    vjust = -0.5,                             # Nudges letters slightly upward
-    color = "black",
-    fontface= "bold",
-    show.legend = FALSE
-  )+
-  scale_color_manual(values = NIN) +
-  labs(x="Age class", y="Wet mass (g)", title="Mean leaf wet mass (g) of C. vulgaris across age class and NiN types", color="NiN type")+
-  scale_y_continuous(
-    expand = expansion(mult = c(0.02, 0.15))
-  )+
-  theme(
-    panel.grid.minor = element_blank(),
-    panel.grid.major.x = element_blank()
-  )
-
-
-
-#Another boxplot
-
-
-ggplot(cleaned_data, aes(x = age_class, y = wet_mass, fill = calluna_NiN_type)) +
-  geom_boxplot(alpha = 0.5, outlier.shape = NA) +
-  geom_quasirandom(dodge.width = 1, 
-                   alpha = 0.5,
-                   size = 1.8,
-                   width = 0.15)+
-  scale_color_manual(values = NIN) +
-  scale_fill_manual(values = NIN) +
-  labs(x = "NiN type", y = "Dry mass (g)")
-
-
 
 
 
