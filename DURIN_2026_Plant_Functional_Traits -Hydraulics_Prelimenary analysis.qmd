@@ -352,6 +352,8 @@ Boxplot_height <- ggplot(cleaned_data, aes(x = age_class, y = height_cm, fill = 
   scale_fill_manual(values = AGE) +
   labs(x = "Age class", y = "Vegetative height (cm)", title="Vegetative height (cm) of Calluna vulgaris across Age class and NiN type")
 
+Boxplot_height
+
 # Save with specific dimensions and high DPI
 ggsave("Boxplot_height.png", plot = Boxplot_height, width = 7, height = 4, dpi = 300)
 ```
@@ -1463,6 +1465,8 @@ anova(lme4_wet_mass)
 (emmeans_lme4_wet_mass<- emmeans(lme4_wet_mass, ~ age_class * calluna_NiN_type))
 pairs(emmeans_lme4_wet_mass, simple="each", adjust="tukey") #Tukey adjustment to prevent false positives
 cld(emmeans_lme4_wet_mass, Letters=letters)
+
+ggp2_wet_mass
 ```
 
 ```{r}
@@ -2156,40 +2160,71 @@ Best visuals so far, using this in the report for the ither traits as well, the 
 #| label: With Boxplot, removing pointrange
 
 
+#Making a reusable plot function
 
-ggp1 <-ggplot(cleaned_data, aes(x = age_class, y = wet_mass, color=calluna_NiN_type)) +
-  geom_quasirandom(dodge.width = 1, 
-                   alpha = 0.35,
-                   size = 1.8,
-                   width = 0.15)+
-  geom_boxplot(aes(fill = calluna_NiN_type, group= interaction(age_class, calluna_NiN_type)),
-               color = "grey23",
-               alpha = 0.35,
-               width = 0.5,
-               position = position_dodge(width=1)
-              )+
-  geom_text(
-    data = cld_wet_mass,
-    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
-    position = position_dodge(width = 1),   # Aligns letters with the pointranges
-    vjust = -0.5,                             # Nudges letters slightly upward
-    color = "black",
-    fontface= "bold",
-    show.legend = FALSE
-  )+
-scale_color_manual(values = NIN, name = "NiN type") +
-scale_fill_manual(values = NIN, name = "NiN type") +
-  labs(x="Age class", y="Wet mass (g)", title="Mean leaf wet mass (g) of C. vulgaris across age class and NiN types", color="NiN type")+
-  scale_y_continuous(
-    expand = expansion(mult = c(0.02, 0.15))
-  )+
-  theme(
-    panel.grid.minor = element_blank(),
-    panel.grid.major.x = element_blank()
-  )
+ggp1 <- function(response, cld_data, ylab, title) {
 
-ggp1
+  p <- ggplot(
+    cleaned_data,
+    aes(
+      x = age_class,
+      y = .data[[response]],
+      color = calluna_NiN_type
+    )
+  ) +
+      geom_quasirandom(
+        dodge.width = 1,
+        alpha = 0.5,
+        size = 1.8,
+        width = 0.15
+      )+
+    geom_boxplot(
+      aes(
+        fill = calluna_NiN_type,
+        group = interaction(age_class, calluna_NiN_type)
+      ),
+      color = "black",
+      alpha = 0.35,
+      width = 0.5,
+      position = position_dodge(width = 1)
+    ) +
+    geom_text(
+      data = cld_data,
+      aes(
+        y = label_y,
+        label = trimws(.group),
+        group = calluna_NiN_type
+      ),
+      position = position_dodge(width = 1),
+      vjust = -0.5,
+      color = "black",
+      fontface = "bold",
+      show.legend = FALSE
+    ) +
+    scale_color_manual(values = NIN, name = "NiN type") +
+    scale_fill_manual(values = NIN, name = "NiN type") +
+    labs(x = "Age class", y = ylab, title = title, color = "NiN type") +
+    scale_y_continuous(
+      expand = expansion(mult = c(0.02, 0.15))
+    ) +
+    theme(
+      panel.grid.minor = element_blank(),
+      panel.grid.major.x = element_blank()
+    )
+}
 
+
+ggp_wet_mass <- ggp1(
+  "wet_mass",
+  cld_wet_mass,
+  "Mean leaf wet mass (g)",
+  "Mean leaf wet mass (g) of" ~ italic("C. vulgaris") ~ "across age class and NiN types"
+)
+
+ggp_wet_mass
+
+# Save with specific dimensions and high DPI
+ggsave("ggp_wet_mass.png", plot = ggp_wet_mass, width = 7, height = 4, dpi = 300)
 ```
 
 ```{r}
@@ -2237,7 +2272,7 @@ scale_fill_manual(values = NIN, name = "NiN type") +
 
 ggplot(cleaned_data, aes(x = age_class, y = wet_mass, color=calluna_NiN_type)) +
   geom_quasirandom(dodge.width = 1, 
-                   alpha = 0.35,
+                   alpha = 0.6,
                    size = 1.8,
                    width = 0.15)+
   geom_boxplot(aes(group= interaction(age_class, calluna_NiN_type)),
@@ -2263,6 +2298,138 @@ ggplot(cleaned_data, aes(x = age_class, y = wet_mass, color=calluna_NiN_type)) +
     panel.grid.minor = element_blank(),
     panel.grid.major.x = element_blank()
   )
+
+```
+
+```{r}
+#| label: trying a plot with significance lines instead of letters
+
+library(ggsignif)
+
+
+# 1. Finn maks-verdien for wet_mass for å styre høyden på brakettene automatisk
+max_y <- max(cleaned_data$wet_mass, na.rm = TRUE)
+
+# 2. Data frame with manual star mapping based on your p-values
+signif_wet_mass <- data.frame(
+  xmin = c(
+    2 - 0.33, # Building: BH
+    2,        # Building: FH
+    1,        # FH: Pioneer to Mature
+    1 + 0.33, # TH: Pioneer to Building
+    2 + 0.33  # TH: Building to Mature
+  ),
+  xmax = c(
+    2 + 0.33, # Building: TH
+    2 + 0.33, # Building: TH
+    3,        # FH: Mature
+    2 + 0.33, # Building: TH
+    3 + 0.33  # Mature: TH
+  ),
+  # Height tiers to stack them neatly above the letters
+  y_position = c(
+    max_y * 1.30, 
+    max_y * 1.45, 
+    max_y * 1.60, 
+    max_y * 1.75, 
+    max_y * 1.90  
+  ),
+  # UPDATED: P-values mapped directly to star ratings
+  annotation = c(
+    "***", # p = 0.0005 (is < 0.001)
+    "***", # p = 0.0002 (is < 0.001)
+    "*",   # p = 0.0109 (is < 0.05)
+    "***", # p = 0.0003 (is < 0.001)
+    "***"  # p = 0.0007 (is < 0.001)
+  ),
+  group = 1:5 
+)
+
+# 3. Build the plot
+ggp2_wet_mass <- ggplot(cleaned_data, aes(x = age_class, y = wet_mass, color = calluna_NiN_type)) +
+  geom_quasirandom(
+    dodge.width = 1,
+    alpha = 0.5,
+    size = 1,
+    width = 0.1
+  ) +
+  geom_boxplot(
+    aes(
+      fill = calluna_NiN_type,
+      group = interaction(age_class, calluna_NiN_type)
+    ),
+    color = "black",
+    alpha = 0.35,
+    width = 0.5,
+    position = position_dodge(width = 1)
+  ) +
+  geom_text(
+    data = cld_wet_mass,
+    aes(
+      y = label_y,
+      label = trimws(.group),
+      group = calluna_NiN_type
+    ),
+    position = position_dodge(width = 1),
+    vjust = -0.5,
+    color = "black",
+    fontface = "bold",
+    show.legend = FALSE
+  ) +
+  
+  # Signif Bracket Layer
+  ggsignif::geom_signif(
+    data = signif_wet_mass,
+    aes(
+      xmin = xmin, 
+      xmax = xmax, 
+      y_position = y_position, 
+      annotations = annotation,
+      group = group
+    ),
+    manual = TRUE,
+    inherit.aes = FALSE, 
+    color = "black",
+    tip_length = 0.02,
+    # Increased text size slightly since stars are smaller than text string expressions
+    textsize = 4.2, 
+    vjust = 0.4 # Centers stars vertically right on top of the bracket line
+  ) +
+  
+  scale_color_manual(values = NIN, name = "NiN type") +
+  scale_fill_manual(values = NIN, name = "NiN type") +
+  labs(
+    x = "Age class", 
+    y = "Mean leaf wet mass (g)", 
+    title = expression("Mean leaf wet mass (g) of " ~ italic("C. vulgaris") ~ " across age class and NiN types"), 
+    color = "NiN type"
+  ) +
+  
+  scale_y_continuous(
+    expand = expansion(mult = c(0.02, 0.10))
+  ) +
+  theme_classic() + 
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  )
+ggp2_wet_mass +
+  geom_segment(
+    aes(x = 1.5, xend = 1.5,
+        y = 0, yend = 0.0072),
+    inherit.aes = FALSE,
+    colour = "grey70",
+    linewidth = 0.5
+  ) +
+  geom_segment(
+    aes(x = 2.5, xend = 2.5,
+        y = 0, yend = 0.0072),
+    inherit.aes = FALSE,
+    colour = "grey70",
+    linewidth = 0.5
+  )
+
+ggp2_wet_mass
 
 ```
 
@@ -2315,8 +2482,6 @@ contrasts_height_df <- contrasts_height_df |>
 
 
 ```
-
--best for visualization and overview
 
 ```{r}
 #| label: point plot for height with error bars 
@@ -2424,48 +2589,78 @@ ggplot(contrasts_height_df,
   )
 ```
 
+This is the plot for the report, cannot use automatic function as height is per plant and not sample
 
 ```{r}
 #| label: ggp1 plot height
 
-ggp2 <- ggp1 + ggplot(aes(y = height_cm)) + geom_text(date = cld_height) + labs(y= "Height (cm)", title = "Mean height (cm) of C. vulgaris across age class and NiN type")
-  
-ggp2
-  
-  
-  ggp1 <-ggplot(cleaned_data, aes(x = age_class, y = wet_mass, color=calluna_NiN_type)) +
-  geom_quasirandom(dodge.width = 1, 
-                   alpha = 0.35,
-                   size = 1.8,
-                   width = 0.15)+
-  geom_boxplot(aes(fill = calluna_NiN_type, group= interaction(age_class, calluna_NiN_type)),
-               color = "grey23",
-               alpha = 0.35,
-               width = 0.5,
-               position = position_dodge(width=1)
-              )+
-  geom_text(
-    data = cld_wet_mass,
-    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
-    position = position_dodge(width = 1),   # Aligns letters with the pointranges
-    vjust = -0.5,                             # Nudges letters slightly upward
-    color = "black",
-    fontface= "bold",
-    show.legend = FALSE
-  )+
-scale_color_manual(values = NIN, name = "NiN type") +
-scale_fill_manual(values = NIN, name = "NiN type") +
-  labs(x="Age class", y="Wet mass (g)", title="Mean leaf wet mass (g) of C. vulgaris across age class and NiN types", color="NiN type")+
-  scale_y_continuous(
-    expand = expansion(mult = c(0.02, 0.15))
-  )+
-  theme(
-    panel.grid.minor = element_blank(),
-    panel.grid.major.x = element_blank()
+#Place letters above the tallest datapoint in each age class
+
+cld_height <- cld_height %>%
+  mutate(
+    label_y = case_when(
+      age_class == "Pioneer"  ~ 54,
+      age_class == "Building" ~ 54,
+      age_class == "Mature"   ~ 54
+    )
   )
+
+ggp_height <- ggplot(
+    cleaned_data,
+    aes(
+      x = age_class,
+      y = height_cm,
+      color = calluna_NiN_type,
+      group = calluna_NiN_type,
+      fill = calluna_NiN_type,
+    )
+  ) +
+  stat_unique(
+  geom = "point",
+  position = position_dodge(width = 1),
+  alpha = 0.8, 
+  size = 1.8
+) +
+    geom_boxplot(
+      aes(
+        group = interaction(age_class, calluna_NiN_type)
+      ),
+      color = "black",
+      alpha = 0.35,
+      width = 0.5,
+      position = position_dodge(width = 1)
+    ) +
+    geom_text(
+      data = cld_height,
+      aes(
+        y = label_y,
+        label = trimws(.group),
+        group = calluna_NiN_type
+      ),
+      position = position_dodge(width = 1),
+      vjust = -0.5,
+      color = "black",
+      fontface = "bold",
+      show.legend = FALSE
+    ) +
+    scale_color_manual(values = NIN, name = "NiN type") +
+    scale_fill_manual(values = NIN, name = "NiN type") +
+    labs(x = "Age class", y = "Vegetative height (cm)", title = "Vegetative height (cm) of" ~ italic("C. vulgaris") ~ "across age class and NiN type", color = "NiN type") +
+    scale_y_continuous(
+      expand = expansion(mult = c(0.02, 0.15))
+    ) +
+    theme(
+      panel.grid.minor = element_blank(),
+      panel.grid.major.x = element_blank()
+    )
+
+
+ggp_height
+
+# Save with specific dimensions and high DPI
+ggsave("ggp_height.png", plot = ggp_height, width = 7, height = 4, dpi = 300)
+  
 ```
-
-
 
 # Presenting results dry mass
 
@@ -2603,9 +2798,34 @@ ggplot(contrasts_dry_mass_df,
     mid = "white",
     high = "darkgreen",
     midpoint=0
-  ) 
+  )
+```
 
+```{r}
+#| label: ggp plot dry mass with automatic plot function
 
+#Place letters above the tallest datapoint in each age class
+
+cld_dry_mass <- cld_dry_mass %>%
+  mutate(
+    label_y = case_when(
+      age_class == "Pioneer"  ~ 0.0035,
+      age_class == "Building" ~ 0.0035,
+      age_class == "Mature"   ~ 0.0035
+    )
+  )
+
+ggp_dry_mass <- ggp1(
+  "dry_mass",
+  cld_dry_mass,
+  "Mean leaf dry mass (g)",
+  "Mean leaf dry mass (g) of" ~ italic("C. vulgaris") ~ "across age class and NiN types"
+)
+
+ggp_dry_mass
+
+# Save with specific dimensions and high DPI
+ggsave("ggp_dry_mass.png", plot = ggp_dry_mass, width = 7, height = 4, dpi = 300)
 ```
 
 # Presenting results leaf area
@@ -2740,11 +2960,34 @@ ggplot(contrasts_leaf_area_df,
     mid = "white",
     high = "darkgreen",
     midpoint=0
-  ) 
+  )
+```
 
+```{r}
+#| label: ggp plot leaf area with automatic plot function
 
+#Place letters above the tallest datapoint in each age class
 
+cld_leaf_area <- cld_leaf_area %>%
+  mutate(
+    label_y = case_when(
+      age_class == "Pioneer"  ~ 0.20,
+      age_class == "Building" ~ 0.20,
+      age_class == "Mature"   ~ 0.20
+    )
+  )
 
+ggp_leaf_area <- ggp1(
+  "leaf_area",
+  cld_leaf_area,
+  expression(Leaf ~ area ~ (mm^2)),
+  expression("Mean leaf area" ~ (mm^2) ~ "of" ~ italic("C. vulgaris") ~ "across age class and NiN type")
+)
+
+ggp_leaf_area
+
+# Save with specific dimensions and high DPI
+ggsave("ggp_leaf_area.png", plot = ggp_leaf_area, width = 7, height = 4, dpi = 300)
 ```
 
 # Presenting results leaf thickness
@@ -2896,6 +3139,33 @@ ggplot(contrasts_leaf_thickness_df,
 
 ```
 
+```{r}
+#| label: ggp plot leaf thickness with automatic plot function
+
+#Place letters above the tallest datapoint in each age class
+
+cld_leaf_thickness <- cld_leaf_thickness %>%
+  mutate(
+    label_y = case_when(
+      age_class == "Pioneer"  ~ 0.83,
+      age_class == "Building" ~ 0.83,
+      age_class == "Mature"   ~ 0.83
+    )
+  )
+
+ggp_leaf_thickness <- ggp1(
+  "leaf_thickness_mean",
+  cld_leaf_thickness,
+  "Mean leaf thickness (mm)",
+  expression("Mean leaf thickness (mm) of" ~ italic("C. vulgaris") ~ "across age class and NiN type")
+)
+
+ggp_leaf_thickness
+
+# Save with specific dimensions and high DPI
+ggsave("ggp_leaf_thickness.png", plot = ggp_leaf_thickness, width = 7, height = 4, dpi = 300)
+```
+
 # Presenting results SLA
 
 ```{r}
@@ -3042,6 +3312,33 @@ ggplot(contrasts_SLA_df,
 
 ```
 
+```{r}
+#| label: ggp plot SLA with automatic plot function
+
+#Place letters above the tallest datapoint in each age class
+
+cld_SLA <- cld_SLA %>%
+  mutate(
+    label_y = case_when(
+      age_class == "Pioneer"  ~ 118,
+      age_class == "Building" ~ 118,
+      age_class == "Mature"   ~ 118
+    )
+  )
+
+ggp_SLA <- ggp1(
+  "SLA",
+  cld_SLA,
+  expression(SLA ~ (mm^2 ~ g^"-1")),
+  expression("Specific leaf area (SLA) of" ~ italic("C. vulgaris") ~ "across age class and NiN type")
+)
+
+ggp_SLA
+
+# Save with specific dimensions and high DPI
+ggsave("ggp_SLA.png", plot = ggp_SLA, width = 7, height = 4, dpi = 300)
+```
+
 # Presenting results LDMC
 
 ```{r}
@@ -3182,6 +3479,33 @@ ggplot(contrasts_LDMC_df,
 
 
 
+```
+
+```{r}
+#| label: ggp plot LDMC with automatic plot function
+
+#Place letters above the tallest datapoint in each age class
+
+cld_LDMC <- cld_LDMC %>%
+  mutate(
+    label_y = case_when(
+      age_class == "Pioneer"  ~ 0.52,
+      age_class == "Building" ~ 0.52,
+      age_class == "Mature"   ~ 0.52
+    )
+  )
+
+ggp_LDMC <- ggp1(
+  "LDMC",
+  cld_LDMC,
+  expression(LDMC ~ (g ~ g^"-1")),
+  expression("Leaf dry matter content (LDMC) of" ~ italic("C. vulgaris") ~ "across age class and NiN type")
+)
+
+ggp_LDMC
+
+# Save with specific dimensions and high DPI
+ggsave("ggp_LDMC.png", plot = ggp_LDMC, width = 7, height = 4, dpi = 300)
 ```
 
 ```{r}
