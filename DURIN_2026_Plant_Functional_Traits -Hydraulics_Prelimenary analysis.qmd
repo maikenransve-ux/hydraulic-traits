@@ -1,0 +1,4178 @@
+---
+title: "DURIN_2026_Plant_Functional_Traits -Hydraulics_Prelimenary analysis"
+author: "Maiken Anabel Ransve"
+format:
+  html:
+    embed-resources: true
+editor: visual
+---
+
+# Importing data
+
+```{r}
+#| label: load libraries
+
+# installing / loading packages 
+
+library(readxl) # Enables excel file import
+library(tidyverse) # Contains many helpful packages, i.e. dplyr etc.
+library(readr) # Data importation functions
+library(stringr) # String and character text
+library(dplyr)
+library(ggplot2)
+library(ggridges) #Moving density plots
+library(rstatix)
+library(car)
+library(performance) #checking model normality, homogeneity, variance
+library(emmeans) #Post hoc testing
+library(afex) #linear mixed models
+library(lme4) #linear mixed models
+library(sdamr) #linear mixed models
+library(lmerTest)
+library(tidyr) #Data visualization, presenting results
+library(multcomp) #emmeans contrasts on plots
+library(factoextra) #PCA biplot
+library(corrplot)
+library(vegan) #RDA analysis
+library(ggrepel) #RDA plot making
+library(ggbeeswarm)
+library(ggnewscale) #Visuals of PCA
+
+
+
+theme_set(theme_bw())
+theme_update(plot.title.position = "plot")
+
+
+
+```
+
+```{r}
+#| label: importing raw data of traits
+#| message: false 
+
+# Read cleaned output file
+cleaned_data <- read_csv("/Users/maikenransve/Documents/Internship_DURIN/statistical analysis/data/clean_data/cleaned_data_copy.csv")
+
+
+
+#Creating a data frame
+cleaned_data <- as.data.frame(cleaned_data)
+cleaned_data$calluna_NIN_type <- factor(cleaned_data$calluna_NIN_type)
+cleaned_data$age_class <- factor(cleaned_data$age_class)
+
+#Add column of mean leaf thickness to cleaned data
+cleaned_data$leaf_thickness_mean <- rowMeans(cleaned_data[, c("leaf_thickness_1", "leaf_thickness_2", "leaf_thickness_3")], na.rm=TRUE)
+
+
+
+```
+
+```{r}
+#| label: Data visualization and overview
+
+summary(cleaned_data)
+str(cleaned_data)
+
+# Order relevant variables (useful for plotting and order based analyses)
+# age_class sorted from youngest to oldest
+
+cleaned_data$age_class <- factor((cleaned_data$age_class),
+                             levels = c("Pioneer", 
+                                        "Building", "Mature"))
+# Check if changed successfully
+levels(cleaned_data$age_class)
+
+
+# Order NIN types
+cleaned_data$calluna_NiN_type <- factor((cleaned_data$calluna_NiN_type),
+                                    levels = c("FH", "BH", "TH"))
+# Check if changed successfully
+levels(cleaned_data$calluna_NiN_type)
+
+## Define colour palette (used with scale fill manual) 
+
+NIN <- c("BH" = "darkslategrey", "FH" = "deepskyblue4", "TH" = "lightskyblue")
+AGE <- c("Pioneer" = "#087E8B","Building" = "#EB5461", "Mature" = "#884000") 
+
+
+
+
+```
+
+# Wet mass(g) visualizations
+
+-Wet mass appears decreasing from Pio to Mat for BH and FH, but for TH the wet mass for Mat has increased to the level of Pio after decreasing in BUI, test for significance between BUI: FH vs TH
+
+```{r}
+#| label: Data frame with mean, median and se + histogram wet mass
+
+df_sum_wet_mass <- cleaned_data %>%
+  group_by(calluna_NiN_type, age_class) %>%
+  summarise(mean_wet_mass = mean(wet_mass, na.rm=TRUE), 
+            median_wet_mass= median.default(wet_mass, na.rm=TRUE),
+            se_wet_mass = sd(wet_mass, na.rm=TRUE)/sqrt(n()), 
+            n = n(), .groups = "drop")
+
+#Histograms, general and NiN and age class specific
+
+ggplot(cleaned_data, aes(x = wet_mass)) + 
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lightblue", color = "black") +
+  geom_density(color = "red", linewidth = 1) 
+
+ggplot(cleaned_data, aes(x = wet_mass)) +
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lavender", color = "black") +
+  geom_density(color = "red", linewidth = 0.8) +
+  facet_grid(calluna_NiN_type ~ age_class) +
+  labs(x = "Wet mass (g)", y = "Number of Calluna individuals")
+
+
+```
+
+Boxplot to check overlapping error bars and data medians
+
+```{r}
+#| label: Boxplot wet mass
+
+ggplot(cleaned_data, aes(x = age_class, y = wet_mass, fill = age_class)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, size = 1, alpha = 0.6) +
+  facet_wrap(~ calluna_NIN_type) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(x = "Age class", y = "Wet mass (g)")
+```
+
+```{r}
+#| label: Violin plot wet mass
+
+ggplot(cleaned_data, aes(x = age_class, y = wet_mass, fill = age_class)) +
+  geom_violin(trim = FALSE, alpha = 0.6) +
+  stat_summary(fun = mean, geom = "point", shape = 23, size = 3, color = "black") +
+  facet_wrap(~ calluna_NIN_type) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(
+    x = "Calluna NIN type",
+    y = "Mean wet mass (g)",
+    color = "Age class"
+)
+```
+
+```{r}
+#| label: Interactive plots wet mass
+
+
+ggplot(df_sum_wet_mass, aes(x = age_class, y = mean_wet_mass, group = calluna_NiN_type, color = calluna_NiN_type)) +
+  geom_line() + geom_point(size = 3) +
+  geom_errorbar(aes(ymin = mean_wet_mass - se_wet_mass, ymax = mean_wet_mass + se_wet_mass), width = 0.1) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(
+    x = "Calluna NIN type",
+    y = "Mean wet mass (g)",
+    color = "Age class"
+)
+```
+
+```{r}
+#| label: Separating plant_nr for each factor: age class and NiN wet mass
+
+ggplot(cleaned_data, aes(x = age_class, y = wet_mass, group = plant_nr)) +
+  # Draw the raw data points for every plant
+  geom_point(aes(color = as.factor(plant_nr)), alpha = 0.3) +
+  # Draw the predicted random slope line for every single plant
+  #geom_line(aes(y = wet_mass, color = as.factor(plant_nr)), size = 0.8) +
+  # Split the graph into panels by Calluna NiN Type!
+  facet_wrap(~ calluna_NiN_type) +
+  labs(title = "Effect of plant nr across All Groups",
+       x = "Age Class", 
+       y = "Wet Mass",
+       color = "Plant Number")
+```
+
+```{r}
+#| label: Density Plot wet mass
+
+ggplot(cleaned_data, aes(x = wet_mass, y =calluna_NiN_type, fill=calluna_NiN_type)) +
+  geom_density_ridges (alpha = 0.5)+ #To separate the density plots vertically
+    facet_wrap(~age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(title = "Density plot wet mass", x = "Wet mass")
+
+
+
+```
+
+# Dry mass(g) visualizations
+
+-General histogram: appears slightly right-skewed
+
+-similar trend to wet mass, but looks like in FH the BUI dry mass increases, then declines for Mat and for TH it decreases for BUI, then increases to Mat
+
+\
+
+```{r}
+#| label: Data frame + histogram dry mass
+
+df_sum_dry_mass <- cleaned_data %>%
+  group_by(calluna_NiN_type, age_class) %>%
+  summarise(mean_dry_mass = mean(dry_mass, na.rm=TRUE),
+            se_dry_mass = sd(dry_mass, na.rm=TRUE)/sqrt(n()),
+            n = n(), .groups = "drop")
+
+# Histogram, general and NiN and age class specific
+
+ggplot(cleaned_data, aes(x = dry_mass)) + 
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lightblue", color = "black") +
+  geom_density(color = "red", linewidth = 1)
+
+
+ggplot(cleaned_data, aes(x = dry_mass)) +
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lavender", color = "black") +
+  geom_density(color = "red", linewidth = 0.8) +
+  facet_grid(calluna_NIN_type ~ age_class) +
+  labs(x = "Dry mass (g)", y = "Number of Calluna individuals")
+```
+
+```{r}
+#| label: Boxplot dry mass
+
+ggplot(cleaned_data, aes(x = age_class, y = dry_mass, fill = age_class)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, size = 1, alpha = 0.6) +
+  facet_wrap(~ calluna_NIN_type) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(x = "Age class", y = "Dry mass (g)")
+
+ggplot(cleaned_data, aes(x = calluna_NiN_type, y = dry_mass, fill = calluna_NiN_type)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, size = 1, alpha = 0.6) +
+  facet_wrap(~ age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(x = "NiN type", y = "Dry mass (g)")
+```
+
+```{r}
+#| label: Violin plot dry mass
+
+ggplot(cleaned_data, aes(x = age_class, y = dry_mass, fill = age_class)) +
+  geom_violin(trim = FALSE, alpha = 0.6) +
+  stat_summary(fun = mean, geom = "point", shape = 23, size = 3, color = "black") +
+  facet_wrap(~ calluna_NIN_type) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(x = "Age class", y = "Dry mass (g)")
+```
+
+```{r}
+#| label: Interactive plot dry mass
+
+ggplot(df_sum_dry_mass, aes(x = age_class, y = mean_dry_mass, group = calluna_NiN_type, color = calluna_NiN_type)) +
+  geom_line() + geom_point(size = 3) +
+  geom_errorbar(aes(ymin = mean_dry_mass - se_dry_mass, ymax = mean_dry_mass + se_dry_mass), width = 0.1) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(
+    x = "Calluna NiN type",
+    y = "Mean dry mass (g)",
+    color = "Age class"
+)
+
+#swapped axis, NiN type on x-axis
+
+ggplot(df_sum_dry_mass, aes(x = calluna_NiN_type, y = mean_dry_mass, group = age_class, color = age_class)) +
+  geom_line() + geom_point(size = 3) +
+  geom_errorbar(aes(ymin = mean_dry_mass - se_dry_mass, ymax = mean_dry_mass + se_dry_mass), width = 0.1) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(
+    x = "Calluna NiN type",
+    y = "Mean dry mass (g)",
+    color = "Age class"
+)
+```
+
+```{r}
+#| label: Density Plot dry mass
+
+ggplot(cleaned_data, aes(x = dry_mass, y = calluna_NiN_type, fill=calluna_NiN_type)) +
+  geom_density_ridges(alpha = 0.5) +
+  facet_wrap(~age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(title = "Density plot dry mass (g)", x = "Dry mass (g)") 
+
+
+
+```
+
+# Height (cm)
+
+-does not appear normally distributed, histogram looks bimodal, but might be too few datapoints
+
+-For height, more variation in MAT, but TH shows a different trend than FH and BH again. The BUI for TH is acting differently that the other nature types
+
+-Plants generally taller in BH and FH, might be significant between PIO: BH vs FH and TH and for MAT: BH, FH vs TH
+
+-From the boxplot, the variances across age classes have quite a different scatter, MAT in BH and FH have a lot more variation than PIO i.e
+
+```{r}
+#| label: Data frame + histogram height
+
+df_sum_height <- cleaned_data %>%
+  group_by(calluna_NiN_type, age_class) %>%
+  summarise(mean_height_cm = mean(height_cm, na.rm=TRUE),
+            se_height_cm = sd(height_cm, na.rm=TRUE)/sqrt(n()),
+            n = n(), .groups = "drop")
+
+# Histogram, general and NiN and age class specific
+
+ggplot(cleaned_data, aes(x = height_cm)) + 
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lightblue", color = "black") +
+  geom_density(color = "red", linewidth = 1)
+
+ggplot(cleaned_data, aes(x = height_cm)) +
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lavender", color = "black") +
+  geom_density(color = "red", linewidth = 0.8) +
+  facet_grid(calluna_NIN_type ~ age_class) +
+  labs(x = "Height (cm)", y = "Number of Calluna individuals")
+```
+
+```{r}
+#| label: Boxplot height
+
+Boxplot_height <- ggplot(cleaned_data, aes(x = age_class, y = height_cm, fill = age_class)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, size = 1, alpha = 0.6) +
+  facet_wrap(~ calluna_NIN_type) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(x = "Age class", y = "Vegetative height (cm)", title="Vegetative height (cm) of Calluna vulgaris across Age class and NiN type")
+
+Boxplot_height
+
+# Save with specific dimensions and high DPI
+ggsave("Boxplot_height.png", plot = Boxplot_height, width = 7, height = 4, dpi = 300)
+```
+
+```{r}
+#| label: violin plot height
+
+ggplot(cleaned_data, aes(x = age_class, y = height_cm, fill = age_class)) +
+  geom_violin(trim = FALSE, alpha = 0.6) +
+  stat_summary(fun = mean, geom = "point", shape = 23, size = 3, color = "black") +
+  facet_wrap(~ calluna_NIN_type) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(x = "Age class", y = "Height (cm)")
+```
+
+```{r}
+#| label: Interactive plot height
+
+
+ggplot(df_sum_height, aes(x = age_class, y = mean_height_cm, group = calluna_NiN_type, color = calluna_NiN_type)) +
+  geom_line() + geom_point(size = 3) +
+  geom_errorbar(aes(ymin = mean_height_cm - se_height_cm, ymax = mean_height_cm + se_height_cm), width = 0.1) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN)  +
+  labs(
+    x = "Calluna NiN type",
+    y = "Mean height (cm)",
+    color = "Age class"
+)
+
+# swapped axis, NiN type on x-axis
+
+ggplot(df_sum_height, aes(x = calluna_NiN_type, y = mean_height_cm, group = age_class, color = age_class)) +
+  geom_line() + geom_point(size = 3) +
+  geom_errorbar(aes(ymin = mean_height_cm - se_height_cm, ymax = mean_height_cm + se_height_cm), width = 0.1) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE)  +
+  labs(
+    x = "Calluna NiN type",
+    y = "Mean height (cm)",
+    color = "Age class"
+)
+```
+
+```{r}
+#| label: Density Plot height
+
+ggplot(cleaned_data, aes(x = height_cm, y=calluna_NiN_type, fill=calluna_NiN_type)) +
+  geom_density_ridges(alpha = 0.5) +
+  facet_wrap(~age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(title = "Density plot height (cm)", x = "Height (cm)")
+
+
+```
+
+# Leaf thickness (mm) visualizations
+
+-General: appears normally distributed, a little right-skewed
+
+-leaf thickness quite overlapping, might be significant between BUI (consider outliers here are pulling the mean)
+
+-thickness highest for PIO in TH, lowest in FH (supports an initial conservative strategy), in BUI thickest leaves in BH, thinnest in TH (more acquisitive), for MAT back to thicker leaves in BH, TH and thinner in FH (conservative)
+
+\
+
+```{r}
+#| label: Dataframe + histogram leaf thickness
+
+  
+#create table with leaf thickness 1,2,3 combined
+
+data_thickness <- cleaned_data %>% 
+  pivot_longer( # to get the separate columns reshaped
+    cols = c(leaf_thickness_1, leaf_thickness_2, leaf_thickness_3),
+    names_to = "replicate",
+    values_to = "leaf_thickness"
+  )
+
+# Data frame with mean and se
+
+df_sum_leaf_thickness <- data_thickness %>%
+  group_by(calluna_NiN_type, age_class) %>%
+  summarise(mean_leaf_thickness = mean(leaf_thickness, na.rm=TRUE),
+            se_leaf_thickness = sd(leaf_thickness, na.rm=TRUE)/sqrt(n()),
+            n = n(), .groups = "drop")
+
+# Histogram, general and NiN, age class specific
+
+ggplot(data_thickness, aes(x = leaf_thickness)) + 
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lightblue", color = "black") +
+  geom_density(color = "red", linewidth = 0.8) 
+
+ggplot(data_thickness, aes(x = leaf_thickness)) +
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lavender", color = "black") +
+  geom_density(color = "red", linewidth = 0.8) +
+  facet_grid(calluna_NIN_type ~ age_class) +
+  labs(x = "Leaf thickness (mm)", y = "Number of Calluna individuals")
+```
+
+```{r}
+#| label: Boxplot leaf thickness
+
+ggplot(data_thickness, aes(x = age_class, y = leaf_thickness, fill = age_class)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, size = 1, alpha = 0.6) +
+  facet_wrap(~ calluna_NiN_type) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(x = "Age class", y = "Leaf thickness (mm)")
+
+
+boxplot_leaf_thickness <- ggplot(data_thickness, aes(x = calluna_NiN_type, y = leaf_thickness, fill = calluna_NiN_type)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, size = 1, alpha = 0.6) +
+  facet_wrap(~ age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(x = "NiN type", y = "Leaf thickness (mm)")
+
+boxplot_leaf_thickness
+
+# Save with specific dimensions and high DPI
+ggsave("boxplot_leaf_thickness.png", plot = boxplot_leaf_thickness, width = 7, height = 4, dpi = 300)
+```
+
+```{r}
+#| label: violin plot leaf thickness
+
+ggplot(data_thickness, aes(x = age_class, y = leaf_thickness, fill = age_class)) +
+  geom_violin(trim = FALSE, alpha = 0.6) +
+  stat_summary(fun = mean, geom = "point", shape = 23, size = 3, color = "black") +
+  facet_wrap(~ calluna_NIN_type) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(x = "Age class", y = "Leaf thickness (mm)")
+```
+
+```{r}
+#| label: Interactive plot leaf thickness
+
+
+interaction_plot_thickness <- ggplot(df_sum_leaf_thickness, aes(x = age_class, y = mean_leaf_thickness, group = calluna_NiN_type, color = calluna_NiN_type)) +
+  geom_line() + geom_point(size = 3) +
+  geom_errorbar(aes(ymin = mean_leaf_thickness - se_leaf_thickness, ymax = mean_leaf_thickness + se_leaf_thickness, width = 0.1)) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(
+    x = "Age class",
+    y = "Leaf thickness (mm)",
+    color = "NiN type", title= "Mean leaf thickness (mm) of C. vulgaris against NiN type and age classes"
+)
+
+interaction_plot_thickness
+
+# Save with specific dimensions and high DPI
+ggsave("interaction_plot_thickness.png", plot = interaction_plot_thickness, width = 7, height = 4, dpi = 300)
+
+
+#swapped axis, NiN type on x-axis
+
+ggplot(df_sum_leaf_thickness, aes(x = calluna_NiN_type, y = mean_leaf_thickness, group = age_class, color = age_class)) +
+  geom_line() + geom_point(size = 3) +
+  geom_errorbar(aes(ymin = mean_leaf_thickness - se_leaf_thickness, ymax = mean_leaf_thickness + se_leaf_thickness), width = 0.1) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(
+    x = "NiN type",
+    y = "Mean leaf thickness (mm)",
+    color = "Age class"
+)
+```
+
+```{r}
+#| label: Density Plot leaf thickness
+
+ggplot(data_thickness, aes(x = leaf_thickness, y=calluna_NiN_type, fill=calluna_NiN_type)) +
+  geom_density_ridges(alpha = 0.5) +
+  facet_wrap(~age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(title = "Density plot leaf thickness (mm)", x = "Leaf thickness (cm)") 
+
+
+```
+
+# Leaf area (cm^2^) visualizations
+
+-general: appears right-skewed, but normally distributed
+
+-leaf area for TH vs FH in PIO and BUI might be significant, generally greater leaf area from PIO→MAT (acquisitive), different trend in TH again. Greater variation in leaf area between age classes in FH
+
+\
+
+```{r}
+#| label: Data frame + histogram leaf area
+
+df_sum_leaf_area <- cleaned_data %>%
+  group_by(calluna_NiN_type, age_class) %>%
+  summarise(mean_leaf_area = mean(leaf_area, na.rm=TRUE),
+            se_leaf_area = sd(leaf_area, na.rm=TRUE)/sqrt(n()),
+            n = n(), .groups = "drop")
+
+# Histogram, general and NiN, age class specific
+
+ggplot(cleaned_data, aes(x = leaf_area)) + 
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lightblue", color = "black") +
+  geom_density(color = "red", linewidth = 0.8) 
+
+ggplot(cleaned_data, aes(x = leaf_area)) +
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lavender", color = "black") +
+  geom_density(color = "red", linewidth = 0.8) +
+  facet_grid(calluna_NIN_type ~ age_class) +
+  labs(x = "Leaf area (cm^2))", y = "Number of Calluna individuals")
+```
+
+```{r}
+#| label: Boxplot leaf area
+
+ggplot(cleaned_data, aes(x = age_class, y = leaf_area, fill = age_class)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, size = 1, alpha = 0.6) +
+  facet_wrap(~ calluna_NIN_type) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(title = "Leaf area of Calluna in different age classes and NiN types", x = "Age class", y = "Leaf area (cm^2)")
+
+ggplot(cleaned_data, aes(x = calluna_NiN_type, y = leaf_area, fill = calluna_NiN_type)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, size = 1, alpha = 0.6) +
+  facet_wrap(~ age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(x = "NiN type", y = "Leaf area (cm^2)")
+```
+
+```{r}
+#| label: violin plot leaf area
+
+ggplot(cleaned_data, aes(x = age_class, y = leaf_area, fill = age_class)) +
+  geom_violin(trim = FALSE, alpha = 0.6) +
+  stat_summary(fun = mean, geom = "point", shape = 23, size = 3, color = "black") +
+  facet_wrap(~ calluna_NiN_type) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(title = "Leaf area of Calluna in different age classes and NiN types", x = "Age class", y = "Leaf area (cm^2)")
+```
+
+```{r}
+#| label: Interactive plot leaf area
+
+
+ggplot(df_sum_leaf_area, aes(x = age_class, y = mean_leaf_area, group = calluna_NiN_type, color = calluna_NiN_type)) +
+  geom_line() + geom_point(size = 3) +
+  geom_errorbar(aes(ymin = mean_leaf_area - se_leaf_area, ymax = mean_leaf_area + se_leaf_area), width = 0.1) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(
+    x = "Calluna NiN type",
+    y = "Mean leaf area (cm^2)",
+    color = "Age class"
+  ) 
+ 
+
+# swapped axis, NiN type on x-axis
+
+ggplot(df_sum_leaf_area, aes(x = calluna_NiN_type, y = mean_leaf_area, group = age_class, color = age_class)) +
+  geom_line() + geom_point(size = 3) +
+  geom_errorbar(aes(ymin = mean_leaf_area - se_leaf_area, ymax = mean_leaf_area + se_leaf_area), width = 0.1) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(
+    x = "Calluna NiN type",
+    y = "Mean leaf area (cm^2)",
+    color = "Age class"
+  )
+```
+
+```{r}
+#| label: Density Plot leaf area
+
+ggplot(cleaned_data, aes(x = leaf_area, y=calluna_NiN_type, fill=calluna_NiN_type)) +
+  geom_density_ridges(alpha = 0.5) +
+  facet_wrap(~age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(title = "Density plot leaf area (cm^2)", x = "Leaf area (cm^2)") 
+
+```
+
+# LDMC visualizations
+
+-General: appears normally distributed, but left-skewed
+
+-Slightly increasing LDMC trend from Pio to Mat (plants become more conservative with age), FH shows a different trend with BUI having the highest LDMC. test significance PIO vs BUI in FH, and BUI: FH vs TH vs BH, FH as the highest LDMC and BH the lowest, TH in the middle (might be overlapping)
+
+\
+
+```{r}
+#| label: Data frame + histogram LDMC
+
+df_sum_LDMC <- cleaned_data %>%
+  group_by(calluna_NiN_type, age_class) %>%
+  summarise(mean_LDMC = mean(LDMC, na.rm=TRUE),
+            se_LDMC = sd(LDMC, na.rm=TRUE)/sqrt(n()),
+            n = n(), .groups = "drop")
+
+
+# Histogram
+
+ggplot(cleaned_data, aes(x = LDMC)) + 
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lightblue", color = "black") +
+  geom_density(color = "red", linewidth = 0.8) 
+
+ggplot(cleaned_data, aes(x = LDMC)) +
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lavender", color = "black") +
+  geom_density(color = "red", linewidth = 0.8) +
+  facet_grid(calluna_NIN_type ~ age_class) +
+  labs(x = "LDMC", y = "Number of Calluna individuals")
+```
+
+```{r}
+#| label: Boxplot LDMC
+
+ggplot(cleaned_data, aes(x = age_class, y = LDMC, fill = age_class)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, size = 1, alpha = 0.6) +
+  facet_wrap(~ calluna_NIN_type) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(x = "Age class", y = "LDMC")
+
+ggplot(cleaned_data, aes(x = calluna_NiN_type, y = LDMC, fill = calluna_NiN_type)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, size = 1, alpha = 0.6) +
+  facet_wrap(~ age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(x = "NiN type", y = "LDMC")
+```
+
+```{r}
+#| label: violin plot LDMC
+
+ggplot(cleaned_data, aes(x = age_class, y = LDMC, fill = age_class)) +
+  geom_violin(trim = FALSE, alpha = 0.6) +
+  stat_summary(fun = mean, geom = "point", shape = 23, size = 3, color = "black") +
+  facet_wrap(~ calluna_NIN_type) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(x = "Age class", y = "LDMC")
+```
+
+```{r}
+#| label: Interactive plot LDMC
+
+
+ggplot(df_sum_LDMC, aes(x = age_class, y = mean_LDMC, group = calluna_NiN_type, color = calluna_NiN_type)) +
+  geom_line() + geom_point(size = 3) +
+  geom_errorbar(aes(ymin = mean_LDMC - se_LDMC, ymax = mean_LDMC + se_LDMC), width = 0.1) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(
+    x = "Calluna NiN type",
+    y = "LDMC",
+    color = "Age class"
+  )
+
+
+#swapped axis, NiN type on x-axis
+
+ggplot(df_sum_LDMC, aes(x = calluna_NiN_type, y = mean_LDMC, group = age_class, color = age_class)) +
+  geom_line() + geom_point(size = 3) +
+  geom_errorbar(aes(ymin = mean_LDMC - se_LDMC, ymax = mean_LDMC + se_LDMC), width = 0.1) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(
+    x = "Calluna NIN type",
+    y = "LDMC",
+    color = "Age class"
+  )
+```
+
+```{r}
+#| label: Density Plot LDMC
+
+ggplot(cleaned_data, aes(x = LDMC, y=calluna_NiN_type, fill=calluna_NiN_type)) +
+  geom_density_ridges(alpha = 0.5) +
+  facet_wrap(~age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(title = "Density plot LDMC", x = "LDMC") 
+
+
+
+
+```
+
+# SLA visualizations
+
+-General: appears right-skewed, Pio FH and Bui TH more scattered
+
+-SLA generally highest for PIO, decreasing to MAT, except BUI in TH. SLA highest in FH for PIO, but quite similar in BH and TH for BUI and MAT. test significance in FH: Pio vs Bui and Mat, and for PIO FH vs TH vs BH
+
+```{r}
+#| label: Data frame + histogram SLA
+
+
+df_sum_SLA <- cleaned_data %>%
+  group_by(calluna_NiN_type, age_class) %>%
+  summarise(mean_SLA = mean(SLA, na.rm=TRUE),
+            se_SLA = sd(SLA, na.rm=TRUE)/sqrt(n()),
+            n = n(), .groups = "drop")
+
+# Histogram
+
+ggplot(cleaned_data, aes(x = SLA)) + 
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lightblue", color = "black") +
+  geom_density(color = "red", linewidth = 0.8) 
+
+ggplot(cleaned_data, aes(x = SLA)) +
+  geom_histogram(aes(bins=30, y = after_stat(density)), fill = "lavender", color = "black") +
+  geom_density(color = "red", linewidth = 0.8) +
+  facet_grid(calluna_NIN_type ~ age_class) +
+  theme_minimal() +
+  labs(x = "SLA", y = "Number of Calluna individuals")
+```
+
+```{r}
+#| label: Boxplot SLA
+
+
+ggplot(cleaned_data, aes(x = age_class, y = SLA, fill = age_class)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, size = 1, alpha = 0.6) +
+  facet_wrap(~ calluna_NIN_type) +
+  theme_minimal() +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  labs(x = "Age class", y = "SLA")
+```
+
+```{r}
+#| label: violin plot SLA
+
+ggplot(cleaned_data, aes(x = age_class, y = SLA, fill = age_class)) +
+  geom_violin(trim = FALSE, alpha = 0.6) +
+  stat_summary(fun = mean, geom = "point", shape = 23, size = 3, color = "black") +
+  facet_wrap(~ calluna_NIN_type) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE) +
+  theme_minimal() +
+  labs(x = "Age class", y = "SLA")
+```
+
+```{r}
+#| label: Interactive plot SLA
+
+
+ggplot(df_sum_SLA, aes(x = age_class, y = mean_SLA, group = calluna_NiN_type, color = calluna_NiN_type)) +
+  geom_line() + geom_point(size = 3) +
+  geom_errorbar(aes(ymin = mean_SLA - se_SLA, ymax = mean_SLA + se_SLA), width = 0.1) +
+   theme (
+    text = element_text(size = 12),
+  axis.text.x = element_text(angle = 45, hjust = 1),
+  panel.grid.minor = element_blank(),
+  panel.grid.major = element_line(color = "grey90"),
+  panel.background = element_rect(fill = "white", color = NA),
+  plot.background = element_rect(fill = "white", color = NA)
+) + 
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN)  +
+  labs(
+    x = "Age class",
+    y = "SLA",
+    color = "Calluna NiN type"
+  )
+
+#swapped axis, NiN type on x-axis
+
+ggplot(df_sum_SLA, aes(x = calluna_NiN_type, y = mean_SLA, group = age_class, color = age_class)) +
+  geom_line() + geom_point(size = 3) +
+  geom_errorbar(aes(ymin = mean_SLA - se_SLA, ymax = mean_SLA + se_SLA), width = 0.1) +
+   theme (
+    text = element_text(size = 12),
+  axis.text.x = element_text(angle = 45, hjust = 1),
+  panel.grid.minor = element_blank(),
+  panel.grid.major = element_line(color = "grey90"),
+  panel.background = element_rect(fill = "white", color = NA),
+  plot.background = element_rect(fill = "white", color = NA)
+) + 
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = AGE)  +
+  labs(
+    x = "Calluna NiN type",
+    y = "SLA",
+    color = "Age class"
+  )
+```
+
+```{r}
+#| label: Density Plot SLA
+
+ggplot(cleaned_data, aes(x = SLA, y=calluna_NiN_type, fill=calluna_NiN_type)) +
+  geom_density_ridges(alpha = 0.5) +
+  facet_wrap(~age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  labs(title = "Density plot SLA", x = "SLA") +
+  theme_minimal()
+
+
+
+
+
+
+```
+
+# Testing for normality
+
+The dependent variable should be approximately normally distributed within each group. While ANOVA is relatively robust to moderate violations of normality, especially with larger sample sizes, extreme departures can affect validity.
+
+-Shapiro-Wilk test reveals non-normality for the linear model, but since we have a large data set n\>50, the test is too sensitive and results might be a false negative, leading to rejection of normal data, when it is in reality fine to use.
+
+-Both ANOVA and mixed models are robust to large datasets when it comes to deviating slightly from normality
+
+-Plot for height is slightly heavy tailed and deviates slightly from the qqline, indicating data contains a few more extreme values than would be expected from a normal distribution. Scale plot also shows variance increases with fitted values
+
+```{r}
+#| label: testing age class and NiN type for normality with shapiro-wilk, qq plots, and residuals
+
+#Find if data meets assumptions for a two-way ANOVA and if transformations are needed by using shapiro-wilk test and qq plot
+
+
+
+########################################### Wet mass
+#Shapiro test for data, lm test more relevant: cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(wet_mass) %>% filter(p<0.05)
+
+#sort by p-values above 0.05, which indicates normality. Thought it would be eaier to filter out which relationships can be used for the ANOVA, or maybe which we should transform before ANOVA?
+
+
+
+# QQ plot is generally more informative than the Shapiro test because large datasets often make Shapiro significant even when deviations are minor.
+
+#Combined qqplot for age class*NiN type, for every combination type, better overview
+
+ggplot(cleaned_data, aes(sample = wet_mass)) +
+ stat_qq() +
+  stat_qq_line(col = "red") +
+  facet_grid(age_class ~ calluna_NiN_type) +
+  labs(title = "Wet mass qq plot")
+
+
+#Linear model with interaction of age class and NiN type
+#lm_wet_mass <- lm(wet_mass ~ age_class*calluna_NiN_type, data = cleaned_data)
+#summary(lm_wet_mass)
+
+
+
+#Checking residuals 
+#W = 0.98438, p-value = 0.001733, indicates non-normality
+#shapiro.test(residuals(lm_wet_mass))
+
+#qqplot
+#plot(lm_wet_mass, which=2)
+#Scale plot checking homoscedasticity of variance, constant variance, points should spread out equally around x-axis and line relatively straight
+#plot(lm_wet_mass, which = 3, add.smooth = TRUE)
+#Check residuals vs fitted, linearity of model
+#plot(lm_wet_mass, which=1)
+
+
+
+
+
+
+######################################### Dry mass
+#Shapiro test for data, lm test more relevant: cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(dry_mass) %>% filter(p>0.05)
+
+#Combined plot for age class*NiN type, for every combination type
+
+ggplot(cleaned_data, aes(sample = dry_mass)) +
+stat_qq() +
+  stat_qq_line(col = "red") +
+  facet_grid(age_class ~ calluna_NiN_type) +
+  labs(title = "Dry mass qq plot")
+
+
+
+#Linear model with interaction of age class and NiN type
+#lm_dry_mass <- lm(dry_mass ~ age_class*calluna_NiN_type, data = cleaned_data)
+#summary(lm_wet_mass)
+
+
+#Checking residuals
+# W = 0.97974, p-value = 0.0001981 indicates data is not normally distributed, even if it appears so
+#shapiro.test(residuals(lm_dry_mass))
+
+#qqplot
+#plot(lm_dry_mass, which=2)
+#Scale plot checking homoscedasticity of variance, constant variance, points should spread out equally around x-axis and line relatively straight
+#plot(lm_dry_mass, which = 3, add.smooth = TRUE)
+#Check residuals vs fitted, linearity of model
+#plot(lm_dry_mass, which=1)
+
+
+########################################### Leaf area
+#Shapiro test for data, lm test more relevant: cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(leaf_area) %>% filter(p>0.05)
+
+
+
+#Combined qq plot for age class*NiN type, every combination type for data before model
+
+ggplot(cleaned_data, aes(sample = leaf_area)) +
+ stat_qq() +
+  stat_qq_line(col = "red") +
+  facet_grid(age_class ~ calluna_NiN_type) +
+  labs(title = "Leaf area qq plot")
+
+#Linear model leaf area with interaction of age class and NiN type
+
+#lm_leaf_area <- lm(leaf_area ~ age_class*calluna_NiN_type, data = cleaned_data)
+#summary(lm_leaf_area)
+
+
+
+#Checking residuals
+#W = 0.98409, p-value = 0.001577, indicates non-normality
+#shapiro.test(residuals(lm_leaf_area))
+
+#qqplot
+#plot(lm_leaf_area, which=2)
+#Scale plot checking homoscedasticity of variance, constant variance, points should spread out equally around x-axis and line relatively straight
+#plot(lm_leaf_area, which = 3, add.smooth = TRUE)
+#Check residuals vs fitted, linearity of model
+#plot(lm_leaf_area, which=1)
+
+
+
+
+##################################### Leaf thickness
+#Shapiro test for data, lm test more relevant: data_thickness %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(leaf_thickness) %>% filter(p>0.05)
+
+
+
+
+#Combined plot for age class*NiN type, for every combination type
+
+ggplot(data_thickness, aes(sample = leaf_thickness)) +
+  stat_qq() +
+  stat_qq_line(col = "red") +
+  facet_grid(age_class ~ calluna_NiN_type) +
+  labs(title = "Leaf thickness qq plot")
+
+
+
+#Linear model with interaction of age class and NiN type
+#lm_leaf_thickness <- lm(leaf_thickness ~ age_class*calluna_NiN_type, data = data_thickness)
+#summary(lm_leaf_thickness)
+
+
+#checking residuals
+#W = 0.96656, p-value = 6.664e-14, not normally distributed
+#shapiro.test(residuals(lm_leaf_thickness))
+
+#qqplot
+#plot(lm_leaf_thickness, which=2)
+#Scale plot checking homoscedasticity of variance, constant variance, points should spread out equally around x-axis and line relatively straight
+#plot(lm_leaf_thickness, which = 3, add.smooth = TRUE)
+#Check residuals vs fitted, linearity of model
+#plot(lm_leaf_thickness, which=1)
+
+
+
+
+
+###################################### SLA
+#Shapiro test for data, lm test more relevant: cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(SLA) %>% filter(p>0.05)
+
+
+#Combined plot for age class*NiN type, for every combination type
+
+ggplot(cleaned_data, aes(sample = SLA)) +
+  stat_qq() +
+  stat_qq_line(col = "red") +
+  facet_grid(age_class ~ calluna_NiN_type) +
+  labs(title = "SLA qq plot")
+
+
+#Linear model with interaction of age class and NiN type
+#lm_SLA <- lm(SLA ~ age_class*calluna_NiN_type, data = cleaned_data)
+#summary(lm_SLA)
+
+
+#checking residuals
+#W = 0.96722, p-value = 1.639e-06, not normally distributed
+#shapiro.test(residuals(lm_SLA))
+
+#qqplot
+#plot(lm_SLA, which=2)
+#Scale plot checking homoscedasticity of variance, constant variance, points should spread out equally around x-axis and line relatively straight
+#plot(lm_SLA, which = 3, add.smooth = TRUE)
+#Check residuals vs fitted, linearity of model
+#plot(lm_SLA, which=1)
+
+
+
+
+
+
+#################################### LDMC
+#Shapiro test for data, lm test more relevant: cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(LDMC) %>% filter(p>0.05)
+
+
+#Combined plot for age class*NiN type, for every combination type
+
+ggplot(cleaned_data, aes(sample = LDMC)) +
+  stat_qq() +
+  stat_qq_line(col = "red") +
+  facet_grid(age_class ~ calluna_NiN_type) +
+  labs(title = "LDMC qq plot")
+
+
+#Linear model with interaction of age class and NiN type
+#lm_LDMC <- lm(LDMC ~ age_class*calluna_NiN_type, data = cleaned_data)
+#summary(lm_LDMC)
+
+
+
+#Checking residuals
+#W = 0.98146, p-value = 0.0004388, not normally distributed
+#shapiro.test(residuals(lm_LDMC))
+
+#qqplot
+#plot(lm_LDMC, which=2)
+#Scale plot checking homoscedasticity of variance, constant variance, points should spread out equally around x-axis and line relatively straight
+#plot(lm_LDMC, which = 3, add.smooth = TRUE)
+#Check residuals vs fitted, linearity of model
+#plot(lm_LDMC, which=1)
+
+```
+
+Height should be fitted to a linear model as we have the same values per plant which includes many of the samples
+
+```{r}
+#| label: Height linear model and testing for normality
+#Shapiro test for data, lm test more relevant: cleaned_data %>% group_by(calluna_NiN_type, age_class) %>% shapiro_test(height_cm) %>% filter(p>0.05)
+
+
+#Combined plot for age class*NiN type, for every combination type
+
+ggplot(cleaned_data, aes(sample = height_cm)) +
+  stat_qq() +
+  stat_qq_line(col = "red") +
+  facet_grid(age_class ~ calluna_NiN_type) +
+  labs(title = "Height qq plot")
+
+
+
+#Linear model with interaction of age class and NiN type
+lm_height_cm <- lm(height_cm ~ age_class*calluna_NiN_type, data = cleaned_data)
+summary(lm_height_cm)
+
+
+
+
+#Checking residuals
+#W = 0.98229, p-value = 0.0006273, indicates non-normality
+shapiro.test(residuals(lm_height_cm))
+
+#qqplot is slightly heavy tailed, indicating data contains a few more extreme values than would be expected from a normal distribution
+plot(lm_height_cm, which=2)
+#Scale plot checking homoscedasticity of variance, constant variance, points should spread out equally around x-axis and line relatively straight
+plot(lm_height_cm, which = 3, add.smooth = TRUE)
+#Check residuals vs fitted, linearity of model
+plot(lm_height_cm, which=1)
+
+check_model(lm_height_cm)
+
+```
+
+# Levenetest for checking variance -not so relevant
+
+Assumption for ANOVA is homogeneity of variance, so it is roughly equal cross all groups. Ensures that the pooled variance estimate used in ANOVA calculations is appropriate.
+
+```{r}
+#| label: levene test to check for homogeneity of variance as ANOVA requires roughly equal variance across all groups
+
+#wet mass, result significant, variance is not equal
+
+
+leveneTest(
+  wet_mass ~ interaction(age_class, calluna_NiN_type),
+  data = cleaned_data
+)
+
+#Dry mass, result non-significant, variance is equal
+
+
+leveneTest(
+  dry_mass ~ interaction(age_class, calluna_NiN_type),
+  data = cleaned_data
+)
+
+#Height, results significant, variance is not equal
+
+leveneTest(
+  height_cm ~ interaction(age_class, calluna_NiN_type),
+  data = cleaned_data
+)
+
+#Leaf area, results significant, variance is not equal
+
+leveneTest(
+  leaf_area ~ interaction(age_class, calluna_NiN_type),
+  data = cleaned_data
+)
+
+#Leaf thickness, results significant, variance is not equal
+
+leveneTest(
+  leaf_thickness ~ interaction(age_class, calluna_NiN_type),
+  data = data_thickness
+)
+
+#LDMC, results not significant, variance is equal
+
+leveneTest(
+  LDMC ~ interaction(age_class, calluna_NiN_type),
+  data = cleaned_data
+)
+
+#SLA, results significant, variance is not equal
+
+leveneTest(
+  SLA ~ interaction(age_class, calluna_NiN_type),
+  data = cleaned_data
+)
+```
+
+# Account for random effects and data clustering with lmer
+
+→ Fixed effects with interactions: trait \~  NIN\*age class, effect of NiN type on trait also depends on effect of age class, and possibly plant sampling groups
+
+-Plant ID (plant nr) is a grouping factor that should be used as random effects to account for non-independence. To account for “within-individual” grouping. These are nested groups with lower level units contained within higher levels
+
+→ often use mixed-effects models as factors with few levels are fixed (NiN, age class) and factors with many levels are random (Plant 1-7 grouping)
+
+5 leaf bulks ⊂ 5 samples ⊂ Plant 1-7 ⊂ Age class × NiN type
+
+\
+-Linear mixed effects models, lme4 package, diff model, but same anova, summary etc. 1I plantID, not for height due to low replicate number
+
+-When you move to `lme4` for mixed-effects models, you have two types of normality to check:
+
+- **Residual normality:** Just like ANOVA, the overall errors of the model should look fairly normal on a Q-Q plot.
+
+- **Random effects normality:** The random intercepts or slopes you estimate for your groups (like subjects or schools) should also follow a normal distribution.
+
+```{r}
+#| label: Mixed model wet mass
+
+#data=cleaned_data
+#dependent variable = plant trait
+#fixed factors: NiN and age class
+#Grouping factor: Plant_nr nested in age class
+
+
+lme4_wet_mass <- lmerTest::lmer(wet_mass ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
+
+summary(lme4_wet_mass)
+plot(lme4_wet_mass, which=2)
+
+qq_wet_mass_lme4 <- qqnorm(residuals(lme4_wet_mass), main = "Q-Q Plot of lme Residuals of Wet mass")
+qqline(residuals(lme4_wet_mass), col = "red")
+
+check_model(lme4_wet_mass)
+
+#Scale plot suggests mild heteroscedasticity with variance increasing slighlty with the mean
+
+
+```
+
+```{r}
+#| label: Mixed model dry mass
+
+lme4_dry_mass <- lmerTest::lmer(dry_mass ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
+
+summary(lme4_dry_mass)
+plot(lme4_dry_mass)
+
+qq_dry_mass_lme4 <- qqnorm(residuals(lme4_dry_mass), main = "Q-Q Plot of Residuals from lme of Dry mass")
+qqline(residuals(lme4_dry_mass), col = "red")
+
+check_model(lme4_dry_mass)
+#Scale plot suggests mild heteroscedasticity with variance increasing slighlty with the mean
+
+
+
+
+```
+
+```{r}
+#| label: Mixed model leaf area
+
+lme4_leaf_area <- lmerTest::lmer(leaf_area ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data)
+
+update(lme4_dry_mass, formula = leaf_area ~ .)
+
+summary(lme4_leaf_area)  
+plot(lme4_leaf_area)
+
+qq_leaf_area_lme4 <- qqnorm(residuals(lme4_leaf_area), main = "Q-Q Plot of Residuals from lme of leaf area")
+qqline(residuals(lme4_leaf_area), col = "red")
+
+
+check_model(lme4_leaf_area)
+```
+
+```{r}
+#| label: Mixed model leaf thickness
+
+lme4_leaf_thickness <- lmerTest::lmer(leaf_thickness_mean ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
+
+summary(lme4_leaf_thickness) 
+plot(lme4_leaf_thickness)
+
+qq_leaf_thickness_lme4 <- qqnorm(residuals(lme4_leaf_thickness), main = "Q-Q Plot of Residuals from lme of leaf thickness")
+qqline(residuals(lme4_leaf_thickness), col = "red")
+
+check_model(lme4_leaf_thickness)
+
+#Scale plot sorted by NiN type and age class, to see in which group residuals have greater variation
+
+data_pred_thickness <- data.frame(
+  predicted_leaf_thickness = predict(lme4_leaf_thickness),
+  residual_leaf_thickness  = residuals(lme4_leaf_thickness),
+  age_class     = cleaned_data$age_class,
+  plant_nr      = cleaned_data$plant_nr,
+  NiN_type      = cleaned_data$calluna_NiN_type
+)
+
+data_pred_thickness$Plant_ID <- interaction(
+  data_pred_thickness$age_class,
+  data_pred_thickness$plant_nr,
+  data_pred_thickness$NiN_type,
+  sep = "_"
+)
+
+ggplot(data_pred_thickness,
+       aes(x = predicted_leaf_thickness,
+           y = residual_leaf_thickness,
+           colour = NiN_type)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = 3)+
+  facet_wrap(~age_class)
+```
+
+```{r}
+#| label: Mixed model LDMC
+
+lme4_LDMC <- lmerTest::lmer(LDMC ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
+
+summary(lme4_LDMC)  
+plot(lme4_LDMC)
+
+qq_LDMC_lme4 <- qqnorm(residuals(lme4_LDMC), main = "Q-Q Plot of Residuals from lme of LDMC")
+qqline(residuals(lme4_LDMC), col = "red")
+
+check_model(lme4_LDMC)
+```
+
+```{r}
+#| label: Mixed model SLA
+
+lme4_SLA <- lmerTest::lmer(SLA~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
+
+summary(lme4_SLA) 
+
+#Scale plot to visually assess model
+plot(lme4_SLA)
+
+#Scale plot suggests mild heteroscedasticity with slight fanning effect increasing with mean
+
+
+#qq plot
+
+qq_SLA_lme4 <- qqnorm(residuals(lme4_SLA), main = "Q-Q Plot of Residuals from lme of SLA")
+qqline(residuals(lme4_SLA), col = "red")
+check_model(lme4_SLA)
+
+
+
+
+```
+
+# lm ANOVA and Post-hoc -only for height
+
+Null hypothesis: there are no significant differences between the interaction of age class and NiN type on given trait
+
+p-value should be lower than 0.05 to reject the H0
+
+Post hoc test with more than two levels, emmeans package: Everything the **emmeans** package does is an interpretation of the model that you fitted to the data, the model has to be a good fit before proceeding with this step.
+
+Interpret emmeans: emmean column means the adjusted average for each trait in the same units
+
+t-ratio tells you how many Standard Errors (SE) your group ratio is away from the null hypothesis, **Significant:** A t-ratio **greater than 2** or **less than -2** is generally statistically significant (assuming a standard 5% error rate).
+
+**Not Significant:** A t-ratio close to 0 (between -2 and 2) means the groups are too similar to be sure of any real difference
+
+estimate column: means the average difference in i.e for height in cm between groups
+
+```{r}
+#| label: lm ANOVA
+
+#Wet mass
+
+#```{r, results='asis'}
+#cat("######## Wet Mass (g)\n\n")
+
+#anova(lm_wet_mass)
+
+#(emmeans_wet_mass<- emmeans(lm_wet_mass, ~ age_class * calluna_NiN_type))
+#pairs(emmeans_wet_mass)
+
+#plot(emmeans_wet_mass)
+
+#Dry mass
+
+#```{r, results='asis'}
+#cat("######## Dry Mass (g)\n\n")
+
+#anova(lm_dry_mass)
+
+#(emmeans_dry_mass<- emmeans(lm_dry_mass, ~ age_class * calluna_NiN_type))
+#pairs(emmeans_dry_mass)
+
+
+
+#Height
+
+cat("######## Height (cm)\n\n")
+
+anova(lm_height_cm)
+
+(emmeans_height_cm<- emmeans(lm_height_cm, ~ age_class * calluna_NiN_type))
+pairs(emmeans_height_cm, simple="each", adjust = "tukey") #Tukey adjustment to prevent false positives
+
+#Grouping individual means by letters for visualization
+cld(emmeans_height_cm, Letters=letters)
+
+
+
+
+#Leaf area 
+
+#```{r, results='asis'}
+#cat("######## Leaf area (mm^2)\n\n")
+
+#anova(lm_leaf_area)
+
+#(emmeans_leaf_area<- emmeans(lm_leaf_area, ~ age_class * calluna_NiN_type))
+#pairs(emmeans_leaf_area)
+
+#Leaf thickness
+
+#```{r, results='asis'}
+#cat("######## Leaf thickness (mm)\n\n")
+
+#anova(lm_leaf_thickness)
+
+#(emmeans_leaf_thickness<- emmeans(lm_leaf_thickness, ~ age_class * calluna_NiN_type))
+#pairs(emmeans_leaf_thickness)
+
+#LDMC
+
+#```{r, results='asis'}
+#cat("######## LDMC\n\n")
+
+#anova(lm_LDMC)
+
+#(emmeans_LDMC<- emmeans(lm_LDMC, ~ age_class * calluna_NiN_type))
+#pairs(emmeans_LDMC) 
+
+
+
+#SLA
+
+#```{r, results='asis'}
+#cat("######## SLA\n\n")
+
+#anova(lm_SLA)
+
+#(emmeans_SLA<- emmeans(lm_SLA, ~ age_class * calluna_NiN_type))
+#pairs(emmeans_SLA) 
+```
+
+# lmer ANOVA and post-hoc testing
+
+TO DO: find out if this is the proper format for testing with lme4 model, anova does not give a Pr value as the degrees of freedom in a mixed model are. ot accurate, so the p-value cannot be precise enough
+
+```{r}
+#| label: ANOVA and emmeans wet mass
+
+#Wet mass
+
+cat("######## Wet Mass (g)\n\n")
+
+anova(lme4_wet_mass)
+
+(emmeans_lme4_wet_mass<- emmeans(lme4_wet_mass, ~ age_class * calluna_NiN_type))
+pairs(emmeans_lme4_wet_mass, simple="each", adjust="tukey") #Tukey adjustment to prevent false positives
+cld(emmeans_lme4_wet_mass, Letters=letters)
+
+
+```
+
+```{r}
+#| label: ANOVA and emmeans dry mass
+
+cat("######## Dry Mass (g)\n\n")
+
+anova(lme4_dry_mass)
+
+(emmeans_lme4_dry_mass<- emmeans(lme4_dry_mass, ~ age_class * calluna_NiN_type))
+pairs(emmeans_lme4_dry_mass, simple="each", adjust = "tukey") #Tukey adjustment to prevent false positives
+cld(emmeans_lme4_dry_mass, Letters=letters)
+```
+
+```{r}
+#| label: ANOVA and emmeans leaf area
+
+cat("######## Leaf area (mm^2)\n\n")
+
+anova(lme4_leaf_area)
+
+(emmeans_lme4_leaf_area<- emmeans(lme4_leaf_area, ~ age_class * calluna_NiN_type))
+pairs(emmeans_lme4_leaf_area, simple="each", adjust="tukey") #Tukey adjustment to prevent false positives
+cld(emmeans_lme4_leaf_area, Letters=letters)
+```
+
+```{r}
+#| label: ANOVA and emmeans leaf thickness
+
+cat("######## Leaf thickness (mm)\n\n")
+
+anova(lme4_leaf_thickness)
+
+(emmeans_lme4_leaf_thickness<- emmeans(lme4_leaf_thickness, ~ age_class * calluna_NiN_type))
+pairs(emmeans_lme4_leaf_thickness, simple="each", adjust="tukey") #Tukey adjustment to prevent false positives
+cld(emmeans_lme4_leaf_thickness, Letters=letters)
+```
+
+```{r}
+#| label: ANOVA and emmeans LDMC
+
+cat("######## LDMC\n\n")
+
+anova(lme4_LDMC)
+
+(emmeans_lme4_LDMC<- emmeans(lme4_LDMC, ~ age_class * calluna_NiN_type))
+pairs(emmeans_lme4_LDMC, simple="each", adjust="tukey") #Tukey adjustment to prevent false positives
+cld(emmeans_lme4_LDMC, Letters=letters)
+
+#Plots to visualize emmeans output
+emmip(emmeans_lme4_LDMC, calluna_NiN_type ~ age_class, CIs=TRUE) #If confidence intervals are largely overlapping it is more likely the groups are not siginficantly different
+plot(emmeans_lme4_LDMC, comparisons=TRUE) #Overlapping arrows mean the groups are likely not significantly different from each other
+```
+
+```{r}
+#| label: ANOVA and emmeans SLA
+
+cat("######## SLA\n\n")
+
+anova(lme4_SLA)
+
+(emmeans_lme4_SLA<- emmeans(lme4_SLA, ~ age_class * calluna_NiN_type))
+pairs(emmeans_lme4_SLA, simple="each", adjust="tukey") #Tukey adjustment to prevent false positives
+cld(emmeans_lme4_SLA, Letters=letters)
+
+```
+
+# Data transformation?
+
+**-data often natural log transformed and scaled** to fairly compare across traits, we can statistically contrast the different traits side-by-side: makes skewed distributions more normal by pulling extreme outliers inward; allows interpretation in multiplicative steps (1x increase → 10x increase etc.); prevents heteroscedasticity (data artificially widening as mean increases); when comparing multiple traits, scaling makes sure a change of one unit in one trait means the same across all variables
+
+-Never use *p*-values to judge the success of a transformation! We use diagnostic plots to make that assessment. What we hope is that we can transform the response variable so that it conforms, at least approximately, to the assumptions of the statistical model
+
+-transform traits individually and do back-transformation
+
+-Plot for height is slightly heavy tailed and deviates slightly from the qqline, indicating data contains a few more extreme values than would be expected from a normal distribution. Scale plot also shows variance increases with fitted values —\> try transformation
+
+```{r}
+#| label: data transformation
+
+
+height_log_mod <- lm(log(height_cm) ~ age_class*calluna_NiN_type, data = cleaned_data)
+summary(height_log_mod)
+
+plot(lm_height_cm, which = 2)
+plot(lm_height_cm, which = 3)
+plot(height_log_mod, which = 2) #new probability plot looks a little better, but not perfect, tails are outside
+plot(height_log_mod, which = 3) #Constant variation assumption fulfilled
+
+check_model(lm_height_cm)
+check_model(height_log_mod)
+
+anova(height_log_mod)
+emmeans_height_log_mod <- emmeans(height_log_mod, ~ age_class * calluna_NiN_type)
+pairs(emmeans_height_log_mod, , type="response") #Add type="response" for contrasting ratios, one group is i.e 0.830 bigger than the other, a ratio of 1 would mean the groups are identical
+
+#the data looks more right-skewed after log transformation
+#Does not look like the transformation did much for the siginificance of emmeans results or the variation of the residuals, decision to stay with original height data
+```
+
+```{r}
+#| label: Should leaf area be transformed? The data is slightly skewed, seen in the histograms
+
+
+#Original mixed model for comparison
+check_model(lme4_leaf_area)
+plot(lme4_leaf_area)
+qq_leaf_area_lme4 <- qqnorm(residuals(lme4_leaf_area), main = "Q-Q Plot of Residuals from lme of leaf area")
+qqline(residuals(lme4_leaf_area), col = "red")
+
+#Log transformed
+log_leaf_area <- lmerTest::lmer(log(leaf_area) ~ age_class*calluna_NiN_type + (1|plant_id), data=cleaned_data, na.action = na.exclude)
+
+plot(log_leaf_area)
+qq_leaf_area_log <- qqnorm(residuals(log_leaf_area), main = "Q-Q Plot of Residuals from log transformed leaf area")
+qqline(residuals(log_leaf_area), col = "red")
+check_model(log_leaf_area)
+
+
+#Residuals are slightly better fitted to line when log transformed, fanning out effect is reduced (less fanning out of the spread as predicted values increase, variance is more constant with log transformation), but the effect 
+#QQplots show quite similar fit along the qqline, decision to stay with non-log transformed data
+
+```
+
+# Multivariate analysis and PCA
+
+-Because traits are not independent, we should investigate interactions between them
+
+-The primary goal of MANOVA is to determine whether the means of the dependent variables differ significantly across groups while considering the interrelationships between the variables
+
+-MANOVA tests whether groups differ in the **multivariate combination** of traits rather than running many separate ANOVAs, it tests if overall trait syndrome differs among age classes, NiN types and the interaction
+
+-Use PCA to reduce dimensionality and identify major axes of trait covariation across NiN types and age classes (remember Diaz et al. 2016 method)
+
+-Because leaf traits often covary (e.g., LES), check for high multicollinearity. Highly correlated variables ((r \> 0.85) or (0.90)) may skew PCA loadings toward specific traits –\> i.e remove wet mass, dry mass
+
+```{r}
+#| label: Testing correlations between traits
+
+#Look at trait pairs scatterplot to evaluate if pearson is more appropriate than spearman, relationships are widely scattered, but more linear so pearson is better
+pairs(traits_compiled)
+
+corr <- cor(cleaned_data[, c(
+  "dry_mass",
+  "height_cm",
+  "leaf_area",
+  "leaf_thickness_mean",
+  "SLA",
+  "LDMC"
+)], method = "pearson",
+use = "pairwise.complete.obs")
+
+round(corr, 2)
+summary(corr)
+
+#Testing correlations between traits as SLA and LDMC are derived from variables already in the model ---appears only wet and dry mass are highly correlated --decision to omit dry mass from MANOVA and pca as they are intermediate measurements use to calculate LDMC and SLA, which are common functional traits
+#NAs are omitted, wet and dry mass excluded
+
+
+
+
+```
+
+```{r}
+#| label: Trait correlation network and MANOVA
+
+
+
+#Correlation plot other layout
+
+
+colnames(corr) <- c(
+  "Dry mass",
+  "Height",
+  "Leaf area",
+  "Leaf thickness",
+  "SLA",
+  "LDMC"
+)
+
+rownames(corr) <- c(
+  "Dry mass",
+  "Height",
+  "Leaf area",
+  "Leaf thickness",
+  "SLA",
+  "LDMC"
+)
+
+
+corrplot_export <- corrplot(corr,
+         method = "circle",
+         type = "lower",
+         order = "hclust",
+         diag = FALSE,
+         col = colorRampPalette(c("#B2182B", "white", "#2166AC"))(200),
+         tl.col = "black",
+         tl.srt = 45,
+         tl.cex = 0.9,
+         cl.cex = 0.8,
+         addCoef.col = "black",
+         number.cex = 0.7,
+         mar = c(0,0,1,0)) +
+  scale_x_discrete(labels = labels_corr) +
+  scale_y_discrete(labels = labels_corr) +
+  scale_size_area(max_size = 15) +
+  geom_text(aes(label = sprintf("%.2f", corr)),
+            size = 3,
+            colour = "black") +
+  mtext("Pearson correlation (r)",
+        side = 4,
+        line = 3,
+        cex = 0.9)
+
+
+#Manova test
+
+manova_mod <- manova(
+  cbind(
+    height_cm,
+    leaf_area,
+    leaf_thickness_mean,
+    SLA,
+    LDMC
+  ) ~ age_class * calluna_NIN_type,
+  data = cleaned_data
+)
+
+summary(manova_mod)
+summary.aov(manova_mod)
+summary(manova_mod, test = "Pillai")
+
+#Emmeans post-hos test for Manova??
+```
+
+```{r}
+#| label: Visualizing MANOVA results with PCA
+
+traits_compiled <- cleaned_data[, c(
+  "height_cm",
+  "leaf_area",
+  "leaf_thickness_mean",
+  "SLA",
+  "LDMC"
+)]
+
+traits_compiled <- na.omit(traits_compiled)
+
+pca <- prcomp(traits_compiled, scale. = TRUE)
+summary(pca)
+
+traits_NiN_age <- cleaned_data[, c(
+  "height_cm",
+  "leaf_area",
+  "leaf_thickness_mean",
+  "SLA",
+  "LDMC",
+  "age_class",
+  "calluna_NiN_type"
+)]
+
+colnames(traits_NiN_age) <- c(
+  "Height",
+  "Leaf area",
+  "Leaf thickness",
+  "SLA",
+  "LDMC",
+  "age_class",
+  "calluna_NiN_type"
+)
+
+
+
+traits_NiN_age <- na.omit(traits_NiN_age)
+
+scores <- cbind(
+  traits_NiN_age,
+  PC1 = pca$x[,1],
+  PC2 = pca$x[,2]
+)
+
+#Calculate % for the plot axis
+pca_importance <- summary(pca)$importance
+pc1_percent <- round(pca_importance[2, 1] * 100, 1)
+pc2_percent <- round(pca_importance[2, 2] * 100, 1)
+
+
+#Can already see from PC1 that mature and pioneer separate in multivariate trait space, don't overlap much, whereas building is intermediate and overlaps with both
+
+ggplot(
+  scores,
+  aes(
+    PC1,
+    PC2,
+    colour = age_class,
+    shape = calluna_NiN_type
+  )
+) +
+  scale_color_manual(values = AGE) +
+  geom_point(size = 3) +
+  stat_ellipse()+
+  labs(
+    x = paste0("PC1 (", pc1_percent, "%)"), 
+    y = paste0("PC2 (", pc2_percent, "%)")  
+  )
+```
+
+There is quite a big overlap of NiN types, showing they have less of a distinct effect on the traits and age class slightly stringer effect, especially seen with FH pioneer Calluna
+
+```{r}
+#| label: PCA separated by facet wrap 
+
+
+
+ggplot(
+  scores,
+  aes(
+    PC1,
+    PC2,
+    colour = calluna_NiN_type
+  )
+) +
+  scale_color_manual(values = NIN) +
+  geom_point(size = 1.8, alpha = 0.9) +
+  stat_ellipse()+
+  facet_wrap(~ age_class, ncol = 3)+
+labs(
+  x = paste0("PC1 (", pc1_percent, "%)"), 
+  y = paste0("PC2 (", pc2_percent, "%)")  
+)
+
+
+
+
+```
+
+```{r}
+#| label: PCA biplot
+
+
+fviz_pca_biplot(
+  pca,
+  habillage = traits_NiN_age$age_class,
+  addEllipses = TRUE,
+  label="var",
+  repel=TRUE
+)+
+scale_color_manual(values = AGE) 
+
+
+#By NiN type
+
+fviz_pca_biplot(
+  pca,
+  habillage = traits_NiN_age$calluna_NiN_type,
+  addEllipses = TRUE,
+  label="var",
+  repel=TRUE,
+  alpha = 0.35
+)+
+  scale_color_manual(values = NIN) +
+  stat_ellipse(level = 0.68)
+```
+
+
+```{r}
+#| label: PCA biplots with different visuals
+
+#trying to improve visuals
+
+custom_labels <- data.frame(
+  Variable = c("Leaf area", "SLA", "Vegetative height", "Leaf thickness", "LDMC"),
+  x = c(1.5,   3.6,  -2.9,  -2.4,  -1.5),  # ◄ Desired X positions on the plot
+  y = c(2.8,  -0.3,  -1.4,   2.1,   1.5)   # ◄ Desired Y positions on the plot
+)
+
+
+biplot_NiN <- fviz_pca_biplot(
+  pca,
+  habillage = traits_NiN_age$calluna_NiN_type,
+  addEllipses = TRUE,
+  ellipse.level = 0.68,
+  ellipse.type = "norm", 
+  label = "none",
+  repel = TRUE,
+  # ◄ This pushes the labels further outward away from the arrow tips/points
+  ggrepel.options = list(point.padding = 0.8, box.padding = 0.5, max.overlaps = Inf),
+  alpha.var = 0.35,
+  geom.ind = "point",
+  col.var = "gray20",
+  labelsize = 4
+) + geom_text(
+  data = custom_labels, 
+  aes(x = x, y = y, label = Variable), 
+  color = "gray20", 
+  size = 4,
+  fontface = "plain",
+  inherit.aes = FALSE   # Prevents it from trying to map to the groups
+) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = rep("transparent", length(unique(traits_NiN_age$calluna_NiN_type)))) + 
+  scale_shape_manual(values = c(16, 16, 16)) +
+  labs(
+    title = "PCA Biplot - Plant Traits",
+    color = "NiN Type",
+    x = "PC1 (40.1%)",
+    y = "PC2 (23.2%)"
+  ) +
+  guides(fill = "none", shape = "none") 
+
+biplot_NiN
+
+#The ellipses overlap substantially, suggesting group differences exist but are not complete separation.
+#FH nature type has the greatest spread of data, variation
+#leaf_area and SLA point strongly to the right → associated with Pioneer samples
+#height points left → associated with Mature samples
+#LDMC and leaf_thickness_mean point upper-left and are positively correlated
+#SLA and LDMC, leaf thickness point in roughly opposite directions which supports research on aqcuisative vs conservative growth strategies
+
+
+biplot_age <- fviz_pca_biplot(
+  pca,
+  habillage = traits_NiN_age$age_class,
+  addEllipses = TRUE,
+  ellipse.level = 0.68,
+  ellipse.type = "norm", 
+  label = "none",
+  repel = TRUE,
+  # ◄ This pushes the labels further outward away from the arrow tips/points
+  ggrepel.options = list(point.padding = 0.8, box.padding = 0.5, max.overlaps = Inf),
+  alpha.var = 0.35,
+  geom.ind = "point",
+  col.var = "gray20",
+  labelsize = 4
+) + geom_text(
+  data = custom_labels, 
+  aes(x = x, y = y, label = Variable), 
+  color = "gray20", 
+  size = 4,
+  fontface = "plain",
+  inherit.aes = FALSE   # Prevents it from trying to map to the groups
+) +
+  scale_color_manual(values = AGE) +
+  scale_fill_manual(values = rep("transparent", length(unique(traits_NiN_age$age_class)))) + 
+  scale_shape_manual(values = c(16, 16, 16)) +
+  labs(
+    title = "PCA Biplot - Plant Traits",
+    color = "Age class",
+    x = "PC1 (40.1%)",
+    y = "PC2 (23.2%)"
+  ) +
+  guides(fill = "none", shape = "none") 
+
+biplot_age
+```
+
+```{r}
+#| label: Individuals only plots, to see if age class occupies different trait space
+
+fviz_pca_ind(
+  pca,
+  habillage = traits_NiN_age$age_class,
+  addEllipses = TRUE,
+  repel = TRUE
+)+
+  scale_color_manual(values = AGE)
+
+fviz_pca_ind(
+  pca,
+  habillage = traits_NiN_age$calluna_NiN_type,
+  addEllipses = TRUE,
+  repel = TRUE
+)+
+  scale_color_manual(values = NIN)
+
+#Trait only, to see which traits drive the PCA
+fviz_pca_var(
+  pca,
+  repel = TRUE
+)
+```
+
+This model is not logical as NiN and age class are categorical variables. Need to figure out which model could be more suitable to answer research question.
+
+```{r}
+#| label: scaling trait values for glm model
+
+
+cleaned_data <- cleaned_data %>%
+  mutate(across(c(SLA, LDMC, leaf_area, leaf_thickness_mean, height_cm),
+                ~ as.numeric(scale(.)),
+                .names = "{.col}_scaled"))
+
+#Test if scaling successful
+#vector of column names
+
+cols <- c("SLA_scaled", "LDMC_scaled", "leaf_area_scaled",
+          "leaf_thickness_mean_scaled", "height_cm_scaled")
+
+#should be close to 0, which it is here
+cleaned_data %>%
+  summarise(across(all_of(cols), mean, na.rm = TRUE))
+
+#should be close to 1, which it is here
+cleaned_data %>%
+  summarise(across(all_of(cols), sd, na.rm = TRUE))
+
+```
+
+```{r}
+#| label: glm model with NiN type as resonse variable to the traits?
+
+
+#testtraits <- lmerTest::lmer(calluna_NiN_type ~ SLA_scaled * LDMC_scaled * height_cm_scaled * leaf_thickness_mean_scaled * leaf_area_scaled  + (1|plant_id), data=cleaned_data, na.action = na.exclude)
+
+```
+
+Need to work on this section and understand what is happening, what will this contribute to for the analysis? can i make an RDA with directionality for age classes and NiN, but not every interaction?
+
+```{r}
+#| label: Redundancy analysis (RDA) analysis
+
+
+
+library(dplyr)
+library(vegan)
+library(ggplot2)
+library(ggrepel)
+
+# 1. PREPARE THE DATA: Create a clean combined grouping column
+traits_NiN_age_combined <- traits_NiN_age %>%
+  mutate(
+    # Clean up the strings slightly so the final labels are short and tidy
+    short_age = gsub("age_class", "", age_class),
+    short_type = gsub("calluna_NiN_type", "", calluna_NiN_type),
+    # Combine them into a single factor
+    site_group = paste(short_age, short_type, sep = "_")
+  )
+
+# 2. RUN THE NEW RDA MODEL (Additive on the combined group)
+rda_mod_combined <- rda(
+  traits_compiled ~ site_group,
+  data = traits_NiN_age_combined, 
+  scale = TRUE
+)
+
+# Check the new statistics
+anova(rda_mod_combined)
+anova(rda_mod_combined, by = "terms", permutations = 999)
+
+# 3. EXTRACT SCORES 
+# Notice we use display = "cn" (centroids) instead of "bp" (biplot arrows)
+species_scores <- as.data.frame(scores(rda_mod_combined, display = "species", scaling = 2))
+species_scores$trait <- rownames(species_scores)
+
+centroid_scores <- as.data.frame(scores(rda_mod_combined, display = "cn", scaling = 2))
+# Clean up the row names so "site_group" isn't prepended to every label
+rownames(centroid_scores) <- gsub("site_group", "", rownames(centroid_scores))
+centroid_scores$variable <- rownames(centroid_scores)
+
+
+# 4. BUILD THE CLEAN GGPLOT
+ggplot(species_scores, aes(RDA1, RDA2)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey70") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey70") +
+  
+  # Trait arrows
+  geom_segment(
+    aes(x = 0, y = 0, xend = RDA1, yend = RDA2),
+    arrow = arrow(length = unit(0.2, "cm")),
+    linewidth = 0.7,
+    color = "steelblue"
+  ) +
+  geom_text_repel(
+    aes(label = trait),
+    size = 4,
+    box.padding = 0.4,
+    point.padding = 0.3,
+    max.overlaps = Inf,
+    color = "steelblue"
+  ) +
+  
+  # Clean Group Centroids (No more overlapping baseline interactions!)
+  geom_point(
+    data = centroid_scores,
+    aes(x = RDA1, y = RDA2),
+    color = "darkred",
+    size = 3.5,
+    shape = 17 
+  ) +
+  geom_text_repel(
+    data = centroid_scores,
+    aes(x = RDA1, y = RDA2, label = variable),
+    color = "darkred",
+    size = 3.5,
+    fontface = "bold",
+    box.padding = 0.6,
+    point.padding = 0.4
+  ) +
+  coord_equal() +
+  theme_classic() +
+  labs(x = "RDA1", y = "RDA2")
+
+
+```
+
+# Presenting results wet mass
+
+```{r}
+#| label: Plots to visualize wet mass emmeans output and dataframes for other plots
+
+
+emmip(emmeans_lme4_wet_mass, calluna_NiN_type ~ age_class, CIs=TRUE) #If confidence intervals are largely overlapping it is more likely the groups are not siginficantly different
+plot(emmeans_lme4_wet_mass, comparisons=TRUE) #These red arrows are specially calculated so that any overlap means "not significant" and no overlap means "significant."
+
+
+
+#dataframe with multicomp, adding significance groups from emmeans
+cld_wet_mass <- cld(
+  emmeans_lme4_wet_mass,
+  adjust = "tukey",
+  Letters = letters
+)
+
+multicomp_wet_mass_df <- left_join(
+  df_sum_wet_mass,
+  cld_wet_mass %>%
+    dplyr::select(age_class, calluna_NiN_type, .group),
+  by = c("age_class", "calluna_NiN_type")
+)
+
+
+#data frame for estimate values from emmeans with all interactions
+pairs(emmeans_lme4_wet_mass)
+contrasts_wet_mass_df <- as.data.frame(pairs(emmeans_lme4_wet_mass))
+head(contrasts_wet_mass_df)
+
+contrasts_wet_mass_df <- contrasts_wet_mass_df |>
+  separate(
+    contrast,
+    into = c("calluna_NiN_type", "age_class"),
+    sep = " - "
+  )
+```
+
+```{r}
+#| label: point plot with error bars for wet mass 
+
+point_plot_wet_mass <- ggplot(
+  multicomp_wet_mass_df,
+  aes(
+    x = age_class,
+    y = mean_wet_mass,
+    colour = calluna_NiN_type,
+    group = calluna_NiN_type
+  )
+) +
+  geom_point(
+    position = position_dodge(0.9),
+    size = 3
+  ) +
+  scale_color_manual(values = NIN) +
+  geom_errorbar(
+    aes(
+      ymin = mean_wet_mass - se_wet_mass,
+      ymax = mean_wet_mass + se_wet_mass
+    ),
+    width = 0.2,
+    position = position_dodge(0.9)
+  ) +
+  geom_text(
+    aes(
+      y = mean_wet_mass + se_wet_mass,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean wet mass (g) of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="Wet mass (g)", fill="NiN type")
+
+point_plot_wet_mass
+
+# Save with specific dimensions and high DPI
+ggsave("point_plot_wet_mass.png", plot = point_plot_wet_mass, width = 7, height = 4, dpi = 300)
+```
+
+```{r}
+#| label: Barchart wet mass
+
+ggplot(multicomp_wet_mass_df, 
+       aes(x = age_class, y = mean_wet_mass, group= calluna_NiN_type, fill = calluna_NiN_type,
+           ymin = mean_wet_mass - se_wet_mass, ymax = mean_wet_mass + se_wet_mass)) +
+  geom_col(position = position_dodge(0.9)) +
+  geom_errorbar(position = position_dodge(0.9), width=0.2) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  geom_text(
+    aes(
+      y = mean_wet_mass + se_wet_mass,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean wet mass (g) of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="Wet mass (g)", fill="NiN type")
+```
+
+```{r}
+#| label: Plot with circles and different levels of significance wet mass
+#showing the size of the estimated differences between the age class and NiN type, a bit to noisy for presenting results
+
+ggplot(contrasts_wet_mass_df,
+       aes(calluna_NiN_type, age_class)) +
+  geom_point(
+    aes(size = abs(estimate),
+        fill = estimate),
+    shape = 21
+  ) +
+  geom_text(
+    aes(label = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01  ~ "**",
+      p.value < 0.05  ~ "*",
+      TRUE ~ ""
+    )),
+    size = 5,
+    nudge_y = 0.2)+
+  theme(
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1,
+      vjust = 1
+    )
+  )+
+  labs(title="Mean wet mass (g) of Calluna vulgaris across age class and NiN type")+
+  coord_equal()+
+  scale_fill_gradient2(
+    low = "brown",
+    mid = "white",
+    high = "darkgreen",
+    midpoint=0
+  )
+```
+
+```{r}
+#| label: beeswarm/ quasirandom plots for wet mass raw data with overlay of statistical tests
+
+
+#Place letters above the tallest datapoint in each age class
+
+
+cld_wet_mass <- cld_wet_mass %>%
+  mutate(
+    label_y = case_when(
+      age_class == "Pioneer"  ~ 0.0075,
+      age_class == "Building" ~ 0.0075,
+      age_class == "Mature"   ~ 0.0075
+    )
+  )
+
+
+ggplot(cleaned_data, aes(x = age_class, y = wet_mass, color=calluna_NiN_type)) +
+   geom_quasirandom(dodge.width = 1, 
+                        alpha = 0.5,
+                        size = 1.3,
+                        width = 0.15)+
+  geom_violin(
+    aes(fill = calluna_NiN_type),
+    position = position_dodge(width = 1),
+    alpha = 0.1,
+    trim = TRUE,
+    scale = "width",
+    show.legend = FALSE
+  ) +
+  scale_fill_manual(values = NIN) +
+geom_pointrange(data=cld_wet_mass, 
+                 aes(x=age_class, y=emmean, ymin=lower.CL, ymax=upper.CL, group=calluna_NiN_type), 
+                color="black",
+                size=0.8,
+                fatten=2,
+                position=position_dodge(width=1))+
+   geom_text(
+     data = cld_wet_mass,
+     aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+     position = position_dodge(width = 1),   # Aligns letters with the pointranges
+     vjust = -0.5,                             # Nudges letters slightly upward
+     color = "black",
+     fontface= "bold",
+     show.legend = FALSE
+  )+
+   scale_color_manual(values = NIN) +
+   labs(x="Age class", y="Wet mass (g)", title="Mean leaf wet mass (g) of C. vulgaris across age class and NiN types", color="NiN type")+
+  scale_y_continuous(
+    expand = expansion(mult = c(0.02, 0.15))
+  )+
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  )
+
+
+```
+
+```{r}
+#| label: Raincloud plot with half violins, jittered points and EMMs wet mass
+
+
+library(ggdist)
+
+
+ggplot(cleaned_data,
+       aes(x = age_class,
+           y = wet_mass,
+           fill = calluna_NiN_type,
+           colour = calluna_NiN_type)) +
+  
+  # Half violin ("cloud")
+  stat_halfeye(
+    adjust = 0.5,
+    width = 0.4,
+    justification = -0.25,   # moves violin left
+    point_colour = NA,
+    alpha = 0.15,
+    position = position_dodge(width = 0.8)
+  ) +
+  
+  # Raw points ("rain")
+  geom_quasirandom(
+    dodge.width = 0.8,
+    width = 0.12,
+    alpha = 0.4,
+    size = 1
+  ) +
+  
+  # EMMs
+  geom_pointrange(
+    data = cld_wet_mass,
+    aes(
+      x = age_class,
+      y = emmean,
+      ymin = lower.CL,
+      ymax = upper.CL,
+      group = calluna_NiN_type
+    ),
+    colour = "black",
+    size = 0.7,
+    fatten = 2,
+    position = position_dodge(width = 0.8),
+    inherit.aes = FALSE
+  ) +
+  
+  # CLD letters
+  geom_text(
+    data = cld_wet_mass,
+    aes(
+      x = age_class,
+      y = label_y,
+      label = trimws(.group),
+      group = calluna_NiN_type
+    ),
+    colour = "black",
+    fontface = "bold",
+    position = position_dodge(width = 0.8),
+    inherit.aes = FALSE
+  ) +
+  
+  scale_fill_manual(values = NIN) +
+  scale_colour_manual(values = NIN) +
+  
+  labs(
+    x = "Age class",
+    y = "Wet mass (g)",
+    title = "Mean leaf wet mass (g) of C. vulgaris across age class and NiN types",
+    colour = "NiN type",
+    fill = "NiN type"
+  ) +
+  
+  theme_bw() +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  )+
+  guides(fill = "none")
+```
+
+Best visuals so far, easy overview, less noise
+
+```{r}
+#| label: Without violins and boxplots wet mass
+
+
+
+results_ggp_wet_mass <- ggplot(cleaned_data, aes(x = calluna_NiN_type, y = wet_mass, color = calluna_NiN_type)) +
+  geom_quasirandom(dodge.width = 1, 
+                   alpha = 0.6,
+                   size = 1,
+                   width = 0.3)+
+  geom_pointrange(data=cld_wet_mass, 
+                  aes(x=calluna_NiN_type, y=emmean, ymin=lower.CL, ymax=upper.CL, group=age_class), 
+                  color="black",
+                  size=0.8,
+                  fatten=2,
+                  position=position_dodge(width=1))+
+  geom_text(
+    data = cld_wet_mass,
+    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+    position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    vjust = -0.5,                             # Nudges letters slightly upward
+    color = "black",
+    fontface= "bold",
+    show.legend = FALSE
+  )+
+  scale_fill_manual(values = NIN) +
+  scale_color_manual(values = NIN) +
+  labs(x=NULL, y="Wet mass (g)", title="Leaf wet mass (g) of" ~ italic("Calluna vulgaris") ~ "across age class and NiN types", color="NiN type")+
+  scale_y_continuous(
+    expand = expansion(mult = c(0.05, 0.15))
+  )+
+  theme(plot.title = element_text(hjust = 0.5),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
+    legend.position = "bottom",
+    legend.justification = "center"
+  ) +
+facet_wrap(~ age_class)
+
+results_ggp_wet_mass
+
+results_export_wet_mass <- results_ggp_wet_mass +
+  theme(plot.title = element_blank())
+
+# Save with specific dimensions and high DPI
+ggsave("results_export_wet_mass.png", plot = results_export_wet_mass, width = 7, height = 4, dpi = 300)
+```
+
+```{r}
+
+#| label: Violin + boxplot wet mass
+
+ggplot(cleaned_data, aes(x = age_class, y = wet_mass, color=calluna_NiN_type)) +
+  geom_quasirandom(dodge.width = 1, 
+                   alpha = 0.5,
+                   size = 1,
+                   width = 0.15)+
+  geom_boxplot(alpha = 0.35,
+               width = 0.5,
+               position = position_dodge(width=1))+
+  geom_violin(
+    aes(fill = calluna_NiN_type),
+    position = position_dodge(width = 1),
+    alpha = 0.15,
+    trim = TRUE,
+    scale = "width"
+  ) +
+  scale_fill_manual(values = NIN) +
+  geom_pointrange(data=cld_wet_mass, 
+                  aes(x=age_class, y=emmean, ymin=lower.CL, ymax=upper.CL, group=calluna_NiN_type), 
+                  color="black",
+                  size=0.8,
+                  fatten=2,
+                  position=position_dodge(width=1))+
+  geom_text(
+    data = cld_wet_mass,
+    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+    position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    vjust = -0.5,                             # Nudges letters slightly upward
+    color = "black",
+    fontface= "bold",
+    show.legend = FALSE
+  )+
+  scale_color_manual(values = NIN) +
+  labs(x="Age class", y="Wet mass (g)", title="Mean leaf wet mass (g) of" ~ italic("C. vulgaris") ~ "across age class and NiN types", color="NiN type")+
+  scale_y_continuous(
+    expand = expansion(mult = c(0.02, 0.15))
+  )+
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  )
+```
+
+Good visuals, the violin is a nice visual to see the spread of the points, but it looks a bit messy with boxplot and violin together, the boxplot gives more information
+
+```{r}
+#| label: With Boxplot, removing pointrange
+
+
+#Making a reusable plot function
+
+ggp1 <- function(response, cld_data, ylab, title) {
+
+  p <- ggplot(
+    cleaned_data,
+    aes(
+      x = age_class,
+      y = .data[[response]],
+      color = calluna_NiN_type
+    )
+  ) +
+      geom_quasirandom(
+        dodge.width = 1,
+        alpha = 0.5,
+        size = 1,
+        width = 0.1
+      )+
+    geom_boxplot(
+      aes(
+        fill = calluna_NiN_type,
+        group = interaction(age_class, calluna_NiN_type)
+      ),
+      color = "black",
+      alpha = 0.35,
+      width = 0.5,
+      position = position_dodge(width = 1)
+    ) +
+    geom_text(
+      data = cld_data,
+      aes(
+        y = label_y,
+        label = trimws(.group),
+        group = calluna_NiN_type
+      ),
+      position = position_dodge(width = 1),
+      vjust = -0.5,
+      color = "black",
+      fontface = "bold",
+      show.legend = FALSE
+    ) +
+    scale_color_manual(values = NIN, name = "NiN type") +
+    scale_fill_manual(values = NIN, name = "NiN type") +
+    labs(x = "Age class", y = ylab, title = title, color = "NiN type") +
+    scale_y_continuous(
+      expand = expansion(mult = c(0.02, 0.15))
+    ) +
+    theme(
+      panel.grid.minor = element_blank(),
+      panel.grid.major.x = element_blank()
+    )
+}
+
+
+ggp_wet_mass <- ggp1(
+  "wet_mass",
+  cld_wet_mass,
+  "Mean leaf wet mass (g)",
+  "Mean leaf wet mass (g) of" ~ italic("C. vulgaris") ~ "across age class and NiN types"
+)
+
+ggp_wet_mass
+
+# Save with specific dimensions and high DPI
+ggsave("ggp_wet_mass.png", plot = ggp_wet_mass, width = 7, height = 4, dpi = 300)
+```
+
+```{r}
+#| label: violin and boxplot without pointrange
+
+ggplot(cleaned_data, aes(x = age_class, y = wet_mass, color=calluna_NiN_type)) +
+  geom_quasirandom(dodge.width = 1, 
+                   alpha = 0.35,
+                   size = 1.8,
+                   width = 0.15)+
+  geom_boxplot(alpha = 0.35,
+               width = 0.5,
+               position = position_dodge(width=1))+
+  geom_violin(
+    aes(fill = calluna_NiN_type),
+    position = position_dodge(width = 1),
+    alpha = 0.15,
+    trim = TRUE,
+    scale = "width"
+  ) +
+  geom_text(
+    data = cld_wet_mass,
+    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+    position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    vjust = -0.5,                             # Nudges letters slightly upward
+    color = "black",
+    fontface= "bold",
+    show.legend = FALSE
+  )+
+scale_color_manual(values = NIN, name = "NiN type") +
+scale_fill_manual(values = NIN, name = "NiN type") +
+  labs(x="Age class", y="Wet mass (g)", title="Mean leaf wet mass (g) of C. vulgaris across age class and NiN types", color="NiN type")+
+  scale_y_continuous(
+    expand = expansion(mult = c(0.02, 0.15))
+  )+
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  )
+```
+
+```{r}
+#| label: Another boxplot
+
+
+ggplot(cleaned_data, aes(x = age_class, y = wet_mass, color=calluna_NiN_type)) +
+  geom_quasirandom(dodge.width = 1, 
+                   alpha = 0.6,
+                   size = 1.8,
+                   width = 0.15)+
+  geom_boxplot(aes(group= interaction(age_class, calluna_NiN_type)),
+               alpha = 0.35,
+               width = 0.5,
+               position = position_dodge(width=1)
+  )+
+  geom_text(
+    data = cld_wet_mass,
+    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+    position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    vjust = -0.5,                             # Nudges letters slightly upward
+    color = "black",
+    fontface= "bold",
+    show.legend = FALSE
+  )+
+  scale_color_manual(values = NIN) +
+  labs(x="Age class", y="Wet mass (g)", title="Mean leaf wet mass (g) of C. vulgaris across age class and NiN types", color="NiN type")+
+  scale_y_continuous(
+    expand = expansion(mult = c(0.02, 0.15))
+  )+
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  )
+
+```
+
+This plot is the most informative, but might be too redundant. I'll stick to the simpler plot without boxplot and significance lines
+
+```{r}
+#| label: Boxplot with raw datapoints, significance lines and letters wet mass
+
+library(ggsignif)
+
+
+# 1. Finn maks-verdien for wet_mass for å styre høyden på brakettene automatisk
+max_y <- max(cleaned_data$wet_mass, na.rm = TRUE)
+
+# 2. Data frame with manual star mapping based on your p-values
+signif_wet_mass <- data.frame(
+  xmin = c(
+    2 - 0.33, # Building: BH
+    2,        # Building: FH
+    1,        # FH: Pioneer to Mature
+    1 + 0.33, # TH: Pioneer to Building
+    2 + 0.33  # TH: Building to Mature
+  ),
+  xmax = c(
+    2 + 0.33, # Building: TH
+    2 + 0.33, # Building: TH
+    3,        # FH: Mature
+    2 + 0.33, # Building: TH
+    3 + 0.33  # Mature: TH
+  ),
+  # Height tiers to stack them neatly above the letters
+  y_position = c(
+    max_y * 1.30, 
+    max_y * 1.45, 
+    max_y * 1.60, 
+    max_y * 1.75, 
+    max_y * 1.90  
+  ),
+  # UPDATED: P-values mapped directly to star ratings
+  annotation = c(
+    "***", # p = 0.0005 (is < 0.001)
+    "***", # p = 0.0002 (is < 0.001)
+    "*",   # p = 0.0109 (is < 0.05)
+    "***", # p = 0.0003 (is < 0.001)
+    "***"  # p = 0.0007 (is < 0.001)
+  ),
+  group = 1:5 
+)
+
+# 3. Build the plot
+ggp2_wet_mass <- ggplot(cleaned_data, aes(x = age_class, y = wet_mass, color = calluna_NiN_type)) +
+  geom_quasirandom(
+    dodge.width = 1,
+    alpha = 0.5,
+    size = 1,
+    width = 0.1
+  ) +
+  geom_boxplot(
+    aes(
+      fill = calluna_NiN_type,
+      group = interaction(age_class, calluna_NiN_type)
+    ),
+    color = "black",
+    alpha = 0.40,
+    width = 0.6,
+    position = position_dodge(width = 1)
+  ) +
+  geom_text(
+    data = cld_wet_mass,
+    aes(
+      y = label_y,
+      label = trimws(.group),
+      group = calluna_NiN_type
+    ),
+    position = position_dodge(width = 1),
+    vjust = -0.5,
+    color = "black",
+    fontface = "bold",
+    show.legend = FALSE
+  ) +
+  
+  # Signif Bracket Layer
+  ggsignif::geom_signif(
+    data = signif_wet_mass,
+    aes(
+      xmin = xmin, 
+      xmax = xmax, 
+      y_position = y_position, 
+      annotations = annotation,
+      group = group
+    ),
+    manual = TRUE,
+    inherit.aes = FALSE, 
+    color = "black",
+    tip_length = 0.02,
+    # Increased text size slightly since stars are smaller than text string expressions
+    textsize = 4.2, 
+    vjust = 0.4 # Centers stars vertically right on top of the bracket line
+  ) +
+  
+  scale_color_manual(values = NIN, name = "NiN type") +
+  scale_fill_manual(values = NIN, name = "NiN type") +
+  labs(
+    x = "Age class", 
+    y = "Mean leaf wet mass (g)", 
+    title = expression("Mean leaf wet mass (g) of " ~ italic("C. vulgaris") ~ " across age class and NiN types"), 
+    color = "NiN type"
+  ) +
+  scale_y_continuous(
+    expand = expansion(mult = c(0.02, 0.10))
+  ) +
+  theme_classic() + 
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  ) +
+  geom_segment(
+    aes(x = 1.5, xend = 1.5,
+        y = 0, yend = 0.0072),
+    inherit.aes = FALSE,
+    colour = "grey80",
+    linewidth = 0.3
+  )+
+  geom_segment(
+    aes(x = 2.5, xend = 2.5,
+        y = 0, yend = 0.0072),
+    inherit.aes = FALSE,
+    colour = "grey80",
+    linewidth = 0.3
+  )
+
+ggp2_wet_mass
+
+# Save with specific dimensions and high DPI
+ggsave("ggp2_wet_mass.png", plot = ggp2_wet_mass, width = 7, height = 4, dpi = 300)
+
+```
+
+# Presenting results height
+
+Comparing results of emmeans post-hoc test, for visualizing the magnitude and direction of differences between group means
+
+#A heatmap of estimates does not show: variability within groups, outliers, sample distributions,overlap among observations.
+
+#Negative values → the first group has a lower mean than the second.
+
+#Positive values → the first group has a higher mean than the second.
+
+#Values near 0 → the groups are similar.
+
+```{r}
+#| label: Plots to visualize height emmeans output and dataframes for other plots
+
+
+emmip(emmeans_height_cm, calluna_NiN_type ~ age_class, CIs=TRUE) #If confidence intervals are largely overlapping it is more likely the groups are not siginficantly different
+plot(emmeans_height_cm, comparisons=TRUE) #These red arrows are specially calculated so that any overlap means "not significant" and no overlap means "significant."
+
+#dataframe with multicomp, adding significance groups from emmeans
+cld_height <- cld(
+  emmeans_height_cm,
+  adjust = "tukey",
+  Letters = letters
+)
+
+multicomp_height_df <- left_join(
+  df_sum_height,
+  cld_height %>%
+    dplyr::select(age_class, calluna_NiN_type, .group),
+  by = c("age_class", "calluna_NiN_type")
+)
+
+
+#data frame for estimate values from emmeans with all interactions
+contrasts_height_df <- as.data.frame(pairs(emmeans_height_cm))
+head(contrasts_height_df)
+
+contrasts_height_df <- contrasts_height_df |>
+  separate(
+    contrast,
+    into = c("calluna_NiN_type", "age_class"),
+    sep = " - "
+  )
+
+
+
+
+```
+
+```{r}
+#| label: point plot for height with error bars 
+
+point_plot_height <- ggplot(
+  multicomp_height_df,
+  aes(
+    x = calluna_NiN_type,
+    y = mean_height_cm,
+    colour = calluna_NiN_type
+  )
+) +
+  geom_pointrange(data=cld_height, 
+                  aes(x=calluna_NiN_type, y=emmean, ymin=lower.CL, ymax=upper.CL, group=calluna_NiN_type),
+                  size=0.8,
+                  fatten=2,
+                  position=position_dodge(width=1))+
+  scale_color_manual(values = NIN, guide = "none") +
+  scale_fill_manual(values = NIN, guide = "none") +
+  geom_text(data = cld_height,
+    aes(
+      y = upper.CL + 2,
+      label = .group,
+      group = calluna_NiN_type
+    ),
+    position = position_dodge(width = 1),
+    vjust = 0,
+    show.legend = FALSE
+  )+ labs(title="Vegetative height (cm) of"  ~ italic("Calluna vulgaris") ~ "across age class and NiN type",
+          x="NiN type", y="Height (cm)", colour = "NiN type") +
+  scale_y_continuous(
+    expand = expansion(mult = c(0.02, 0.05))) +
+  theme(plot.title = element_text(hjust = 0.5), 
+        panel.grid.minor = element_blank(),
+        panel.grid.major.x = element_blank()) +
+  facet_wrap(~age_class)
+
+point_plot_height
+  
+# Save with specific dimensions and high DPI
+ggsave("point_plot_height.png", plot = point_plot_height, width = 7, height = 4, dpi = 300)
+```
+
+Not so easy to read as it looks like y-axis is counting the height
+
+```{r}
+#| label: Barchart height summary
+
+ggplot(multicomp_height_df, 
+       aes(x = age_class, y = mean_height_cm, group= calluna_NiN_type, fill = calluna_NiN_type,
+           ymin = mean_height_cm - se_height_cm, ymax = mean_height_cm + se_height_cm)) +
+  geom_col(position = position_dodge(0.9)) +
+  geom_errorbar(position = position_dodge(0.9), width=0.2) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  geom_text(
+    aes(
+      y = mean_height_cm + se_height_cm,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean vegetative height (cm) of Calluna vulgaris across age class and NiN type",
+  x="Age class", y="Height (cm)", fill="NiN type")
+```
+
+```{r}
+#| label: Plot with circles and different levels of significance for height
+
+# showing the size of the estimated differences between the age class and NiN type, a bit to noisy for presenting results
+
+ggplot(contrasts_height_df,
+       aes(calluna_NiN_type, age_class)) +
+  geom_point(
+    aes(size = abs(estimate),
+        fill = estimate),
+    shape = 21
+  ) +
+  geom_text(
+    aes(label = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01  ~ "**",
+      p.value < 0.05  ~ "*",
+      TRUE ~ ""
+    )),
+    size = 5,
+    nudge_y = 0.2)+
+  xlab("NIN type")+
+  ylab("Age class")+
+  theme(
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1,
+      vjust = 1
+    )
+  )+
+  labs(title="Mean height (cm) of Calluna vulgaris across age class and NiN type")+
+  coord_equal()+
+  scale_fill_gradient2(
+    low = "brown",
+    mid = "white",
+    high = "darkgreen",
+    midpoint=0
+  )
+```
+
+```{r}
+#| label: ggp1 plot height
+
+#Place letters above the tallest datapoint in each age class
+
+cld_height <- cld_height %>%
+  mutate(
+    label_y = case_when(
+      age_class == "Pioneer"  ~ 54,
+      age_class == "Building" ~ 54,
+      age_class == "Mature"   ~ 54
+    )
+  )
+
+ggp_height <- ggplot(
+    cleaned_data,
+    aes(
+      x = age_class,
+      y = height_cm,
+      color = calluna_NiN_type,
+      group = calluna_NiN_type,
+      fill = calluna_NiN_type,
+    )
+  ) +
+  stat_unique(
+  geom = "point",
+  position = position_dodge(width = 1),
+  alpha = 0.8, 
+  size = 1.8
+) +
+    geom_boxplot(
+      aes(
+        group = interaction(age_class, calluna_NiN_type)
+      ),
+      color = "black",
+      alpha = 0.35,
+      width = 0.5,
+      position = position_dodge(width = 1)
+    ) +
+    geom_text(
+      data = cld_height,
+      aes(
+        y = label_y,
+        label = trimws(.group),
+        group = calluna_NiN_type
+      ),
+      position = position_dodge(width = 1),
+      vjust = -0.5,
+      color = "black",
+      fontface = "bold",
+      show.legend = FALSE
+    ) +
+    scale_color_manual(values = NIN, name = "NiN type") +
+    scale_fill_manual(values = NIN, name = "NiN type") +
+    labs(x = "Age class", y = "Vegetative height (cm)", title = "Vegetative height (cm) of" ~ italic("C. vulgaris") ~ "across age class and NiN type", color = "NiN type") +
+    scale_y_continuous(
+      expand = expansion(mult = c(0.02, 0.15))
+    ) +
+    theme(
+      panel.grid.minor = element_blank(),
+      panel.grid.major.x = element_blank()
+    )
+
+
+ggp_height
+
+# Save with specific dimensions and high DPI
+ggsave("ggp_height.png", plot = ggp_height, width = 7, height = 4, dpi = 300)
+  
+
+```
+
+For the report:
+
+```{r}
+#| label: Quasirandom + pointrange + EMM results plot height
+
+
+results_ggp_height <- ggplot(cleaned_data, aes(x = calluna_NiN_type, y = height_cm, color = calluna_NiN_type)) +
+  stat_unique(
+    geom = "point",
+    position = position_dodge(width = 1),
+    alpha = 0.4, 
+    size = 1.8
+  ) +
+  geom_pointrange(data=cld_height, 
+                  aes(x=calluna_NiN_type, y=emmean, ymin=lower.CL, ymax=upper.CL, group=age_class), 
+                  color="black",
+                  size=0.8,
+                  fatten=2,
+                  position=position_dodge(width=1))+
+  geom_text(
+    data = cld_height,
+    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+    position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    vjust = -0.5,                             # Nudges letters slightly upward
+    color = "black",
+    fontface= "bold",
+    show.legend = FALSE
+  )+
+  scale_fill_manual(values = NIN) +
+  scale_color_manual(values = NIN) +
+  labs(x = NULL, y="Vegetative height (cm)", title="Vegetative height (cm) of" ~ italic("Calluna vulgaris") ~ "across age class and NiN types", color="NiN type")+
+  scale_y_continuous(
+    expand = expansion(mult = c(0.02, 0.15))
+  )+
+  theme(plot.title = element_text(hjust = 0.5),
+        panel.grid.minor = element_blank(),
+        panel.grid.major.x = element_blank(),
+        legend.position = "bottom",
+        legend.justification = "center"
+  ) +
+  facet_wrap(~ age_class)
+
+results_ggp_height
+
+results_export_height <- results_ggp_height +
+  theme(plot.title = element_blank())
+
+
+# Save with specific dimensions and high DPI
+ggsave("results_export_height.png", plot = results_export_height, width = 7, height = 4, dpi = 300)
+```
+
+# Presenting results dry mass
+
+```{r}
+#| label: Plots to visualize dry mass emmeans output and data frames for other plots
+
+
+emmip(emmeans_lme4_dry_mass, calluna_NiN_type ~ age_class, CIs=TRUE) #If confidence intervals are largely overlapping it is more likely the groups are not siginficantly different
+plot(emmeans_lme4_dry_mass, comparisons=TRUE) #Overlapping arrows mean the groups are likely not significantly different from each other
+
+#dataframe with multicomp, adding significance groups from emmeans
+cld_dry_mass <- cld(
+  emmeans_lme4_dry_mass,
+  adjust = "tukey",
+  Letters = letters
+)
+
+multicomp_dry_mass_df <- left_join(
+  df_sum_dry_mass,
+  cld_dry_mass %>%
+    dplyr::select(age_class, calluna_NiN_type, .group),
+  by = c("age_class", "calluna_NiN_type")
+)
+
+
+#data frame for estimate values from emmeans with all interactions
+pairs(emmeans_lme4_dry_mass)
+contrasts_dry_mass_df <- as.data.frame(pairs(emmeans_lme4_dry_mass))
+head(contrasts_dry_mass_df)
+
+contrasts_dry_mass_df <- contrasts_dry_mass_df |>
+  separate(
+    contrast,
+    into = c("calluna_NiN_type", "age_class"),
+    sep = " - "
+  )
+
+
+
+```
+
+```{r}
+#| label: point plot with error bars dry mass
+
+point_plot_dry_mass <- ggplot(
+  multicomp_dry_mass_df,
+  aes(
+    x = age_class,
+    y = mean_dry_mass,
+    colour = calluna_NiN_type,
+    group = calluna_NiN_type
+  )
+) +
+  geom_point(
+    position = position_dodge(0.9),
+    size = 3
+  ) +
+  scale_color_manual(values = NIN) +
+  geom_errorbar(
+    aes(
+      ymin = mean_dry_mass - se_dry_mass,
+      ymax = mean_dry_mass + se_dry_mass
+    ),
+    width = 0.2,
+    position = position_dodge(0.9)
+  ) +
+  geom_text(
+    aes(
+      y = mean_dry_mass + se_dry_mass,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean dry mass (g) of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="Dry mass (g)", fill="NiN type")
+
+point_plot_dry_mass
+
+# Save with specific dimensions and high DPI
+ggsave("point_plot_dry_mass.png", plot = point_plot_dry_mass, width = 7, height = 4, dpi = 300)
+```
+
+```{r}
+#| label:  Barchart dry mass
+ggplot(multicomp_dry_mass_df, 
+       aes(x = age_class, y = mean_dry_mass, group= calluna_NiN_type, fill = calluna_NiN_type,
+           ymin = mean_dry_mass - se_dry_mass, ymax = mean_dry_mass + se_dry_mass)) +
+  geom_col(position = position_dodge(0.9)) +
+  geom_errorbar(position = position_dodge(0.9), width=0.2) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  geom_text(
+    aes(
+      y = mean_dry_mass + se_dry_mass,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean dry mass (g) of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="Dry mass (g)", fill="NiN type")
+```
+
+```{r}
+#| label: Plot with circles and different levels of significance dry mass
+
+ggplot(contrasts_dry_mass_df,
+       aes(calluna_NiN_type, age_class)) +
+  geom_point(
+    aes(size = abs(estimate),
+        fill = estimate),
+    shape = 21
+  ) +
+  geom_text(
+    aes(label = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01  ~ "**",
+      p.value < 0.05  ~ "*",
+      TRUE ~ ""
+    )),
+    size = 5,
+    nudge_y = 0.2)+
+  theme(
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1,
+      vjust = 1
+    )) + 
+  labs(title="Mean dry mass (g) of Calluna vulgaris across age class and NiN type")+
+  theme(plot.title.position = "plot") +
+  coord_equal()+
+  scale_fill_gradient2(
+    low = "brown",
+    mid = "white",
+    high = "darkgreen",
+    midpoint=0
+  )
+```
+
+```{r}
+#| label: ggp plot dry mass with automatic plot function
+
+#Place letters above the tallest datapoint in each age class
+
+cld_dry_mass <- cld_dry_mass %>%
+  mutate(
+    label_y = case_when(
+      age_class == "Pioneer"  ~ 0.0035,
+      age_class == "Building" ~ 0.0035,
+      age_class == "Mature"   ~ 0.0035
+    )
+  )
+
+ggp_dry_mass <- ggp1(
+  "dry_mass",
+  cld_dry_mass,
+  "Mean leaf dry mass (g)",
+  "Mean leaf dry mass (g) of" ~ italic("C. vulgaris") ~ "across age class and NiN types"
+)+
+  geom_segment(
+    aes(x = 1.5, xend = 1.5,
+        y = 0, yend = 0.003),
+    inherit.aes = FALSE,
+    colour = "grey80",
+    linewidth = 0.3
+  )+
+  geom_segment(
+    aes(x = 2.5, xend = 2.5,
+        y = 0, yend = 0.003),
+    inherit.aes = FALSE,
+    colour = "grey80",
+    linewidth = 0.3
+  )
+
+ggp_dry_mass
+
+# Save with specific dimensions and high DPI
+ggsave("ggp_dry_mass.png", plot = ggp_dry_mass, width = 7, height = 4, dpi = 300)
+```
+
+This is used in the report:
+
+```{r}
+#| label: Without violins and boxplots dry mass
+
+
+
+results_ggp_dry_mass <- ggplot(cleaned_data, aes(x = calluna_NiN_type, y = dry_mass, color = calluna_NiN_type)) +
+  geom_quasirandom(dodge.width = 1, 
+                   alpha = 0.6,
+                   size = 1,
+                   width = 0.3)+
+  geom_pointrange(data=cld_dry_mass, 
+                  aes(x=calluna_NiN_type, y=emmean, ymin=lower.CL, ymax=upper.CL, group=age_class), 
+                  color="black",
+                  size=0.8,
+                  fatten=2,
+                  position=position_dodge(width=1))+
+  geom_text(
+    data = cld_dry_mass,
+    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+    position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    vjust = -0.5,                             # Nudges letters slightly upward
+    color = "black",
+    fontface= "bold",
+    show.legend = FALSE
+  )+
+  scale_fill_manual(values = NIN) +
+  scale_color_manual(values = NIN) +
+  labs(x=NULL, y="Dry mass (g)", title="Leaf dry mass (g) of" ~ italic("Calluna vulgaris") ~ "across age class and NiN types", color="NiN type")+
+  scale_y_continuous(
+    expand = expansion(mult = c(0.05, 0.15))
+  )+
+  theme(plot.title = element_text(hjust = 0.5),
+        panel.grid.minor = element_blank(),
+        panel.grid.major.x = element_blank(),
+        legend.position = "bottom",
+        legend.justification = "center"
+  ) +
+  facet_wrap(~ age_class)
+
+results_ggp_dry_mass
+
+results_export_dry_mass <- results_ggp_dry_mass +
+  theme(plot.title = element_blank())
+
+# Save with specific dimensions and high DPI
+ggsave("results_export_dry_mass.png", plot = results_export_dry_mass, width = 7, height = 4, dpi = 300)
+```
+
+# Presenting results leaf area
+
+```{r}
+#| label: Plots to visualize leaf area emmeans output and data frames for other plots 
+
+emmip(emmeans_lme4_leaf_area, calluna_NiN_type ~ age_class, CIs=TRUE) #If confidence intervals are largely overlapping it is more likely the groups are not siginficantly different
+plot(emmeans_lme4_leaf_area, comparisons=TRUE) #Overlapping arrows mean the groups are likely not significantly different from each other
+
+#dataframe with multicomp, adding significance groups from emmeans
+cld_leaf_area <- cld(
+  emmeans_lme4_leaf_area,
+  adjust = "tukey",
+  Letters = letters
+)
+
+multicomp_leaf_area_df <- left_join(
+  df_sum_leaf_area,
+  cld_leaf_area %>%
+    dplyr::select(age_class, calluna_NiN_type, .group),
+  by = c("age_class", "calluna_NiN_type")
+)
+
+
+#data frame for estimate values from emmeans with all interactions
+pairs(emmeans_lme4_leaf_area)
+contrasts_leaf_area_df <- as.data.frame(pairs(emmeans_lme4_leaf_area))
+head(contrasts_leaf_area_df)
+
+contrasts_leaf_area_df <- contrasts_leaf_area_df |>
+  separate(
+    contrast,
+    into = c("calluna_NiN_type", "age_class"),
+    sep = " - "
+  )
+```
+
+```{r}
+#| label: point plot with error bars leaf area
+
+point_plot_leaf_area <- ggplot(
+  multicomp_leaf_area_df,
+  aes(
+    x = age_class,
+    y = mean_leaf_area,
+    colour = calluna_NiN_type,
+    group = calluna_NiN_type
+  )
+) +
+  geom_point(
+    position = position_dodge(0.9),
+    size = 3
+  ) +
+  scale_color_manual(values = NIN) +
+  geom_errorbar(
+    aes(
+      ymin = mean_leaf_area - se_leaf_area,
+      ymax = mean_leaf_area + se_leaf_area
+    ),
+    width = 0.2,
+    position = position_dodge(0.9)
+  ) +
+  geom_text(
+    aes(
+      y = mean_leaf_area + se_leaf_area,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean leaf area (mm^2) of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="Leaf area (mm^2)", fill="NiN type")
+
+point_plot_leaf_area
+
+# Save with specific dimensions and high DPI
+ggsave("point_plot_leaf_area.png", plot = point_plot_leaf_area, width = 7, height = 4, dpi = 300)
+```
+
+```{r}
+#| label: Barchart leaf area
+ggplot(multicomp_leaf_area_df, 
+       aes(x = age_class, y = mean_leaf_area, group= calluna_NiN_type, fill = calluna_NiN_type,
+           ymin = mean_leaf_area - se_leaf_area, ymax = mean_leaf_area + se_leaf_area)) +
+  geom_col(position = position_dodge(0.9)) +
+  geom_errorbar(position = position_dodge(0.9), width=0.2) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  geom_text(
+    aes(
+      y = mean_leaf_area + se_leaf_area,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean leaf_area (mm^2) of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="Leaf area (mm^2)", fill="NiN type")
+```
+
+```{r}
+#| label: Plot with circles and different levels of significance leaf area
+
+ggplot(contrasts_leaf_area_df,
+       aes(calluna_NiN_type, age_class)) +
+  geom_point(
+    aes(size = abs(estimate),
+        fill = estimate),
+    shape = 21
+  ) +
+  geom_text(
+    aes(label = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01  ~ "**",
+      p.value < 0.05  ~ "*",
+      TRUE ~ ""
+    )),
+    size = 5,
+    nudge_y = 0.2)+
+  theme(
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1,
+      vjust = 1
+    )) + 
+  labs(title="Mean leaf area (mm^2) of Calluna vulgaris across age class and NiN type")+
+  theme(plot.title.position = "plot") +
+  coord_equal()+
+  scale_fill_gradient2(
+    low = "brown",
+    mid = "white",
+    high = "darkgreen",
+    midpoint=0
+  )
+```
+
+```{r}
+#| label: ggp plot leaf area with automatic plot function
+
+#Place letters above the tallest datapoint in each age class
+
+cld_leaf_area <- cld_leaf_area %>%
+  mutate(
+    label_y = case_when(
+      age_class == "Pioneer"  ~ 0.20,
+      age_class == "Building" ~ 0.20,
+      age_class == "Mature"   ~ 0.20
+    )
+  )
+
+ggp_leaf_area <- ggp1(
+  "leaf_area",
+  cld_leaf_area,
+  expression(Leaf ~ area ~ (mm^2)),
+  expression("Mean leaf area" ~ (mm^2) ~ "of" ~ italic("C. vulgaris") ~ "across age class and NiN type")
+)
+
+ggp_leaf_area
+
+# Save with specific dimensions and high DPI
+ggsave("ggp_leaf_area.png", plot = ggp_leaf_area, width = 7, height = 4, dpi = 300)
+```
+
+```{r}
+#| label: Without violins and boxplots leaf area
+
+
+
+results_ggp_leaf_area <- ggplot(cleaned_data, aes(x = calluna_NiN_type, y = leaf_area, color = calluna_NiN_type)) +
+  geom_quasirandom(dodge.width = 1, 
+                   alpha = 0.6,
+                   size = 1,
+                   width = 0.3)+
+  geom_pointrange(data=cld_leaf_area, 
+                  aes(x=calluna_NiN_type, y=emmean, ymin=lower.CL, ymax=upper.CL, group=age_class), 
+                  color="black",
+                  size=0.8,
+                  fatten=2,
+                  position=position_dodge(width=1))+
+  geom_text(
+    data = cld_leaf_area,
+    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+    position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    vjust = -0.5,                             # Nudges letters slightly upward
+    color = "black",
+    fontface= "bold",
+    show.legend = FALSE
+  )+
+  scale_fill_manual(values = NIN) +
+  scale_color_manual(values = NIN) +
+  labs(x= NULL, y = expression(Leaf ~ area ~ (mm^2)), color = "NiN type", title=expression("Leaf area" ~ (mm^2) ~ "of" ~ italic("C. vulgaris") ~ "across age class and NiN type"))+
+  scale_y_continuous(
+    expand = expansion(mult = c(0.05, 0.15))
+  )+
+  theme(plot.title = element_text(hjust = 0.5),
+        panel.grid.minor = element_blank(),
+        panel.grid.major.x = element_blank(),
+        legend.position = "bottom",
+        legend.justification = "center"
+  ) +
+  facet_wrap(~ age_class)
+
+results_ggp_leaf_area
+
+results_export_leaf_area <- results_ggp_leaf_area +
+  theme(plot.title = element_blank())
+
+# Save with specific dimensions and high DPI
+ggsave("results_export_leaf_area.png", plot = results_export_leaf_area, width = 7, height = 4, dpi = 300)
+```
+
+# Presenting results leaf thickness
+
+```{r}
+#| label: Plots to visualize emmeans output leaf thickness
+
+
+emmip(emmeans_lme4_leaf_thickness, calluna_NiN_type ~ age_class, CIs=TRUE) #If confidence intervals are largely overlapping it is more likely the groups are not siginficantly different
+plot(emmeans_lme4_leaf_thickness, comparisons=TRUE) #Overlapping arrows mean the groups are likely not significantly different from each other
+
+
+#dataframe with multicomp, adding significance groups from emmeans
+cld_leaf_thickness <- cld(
+  emmeans_lme4_leaf_thickness,
+  adjust = "tukey",
+  Letters = letters
+)
+
+multicomp_leaf_thickness_df <- left_join(
+  df_sum_leaf_thickness,
+  cld_leaf_thickness %>%
+    dplyr::select(age_class, calluna_NiN_type, .group),
+  by = c("age_class", "calluna_NiN_type")
+)
+
+
+#data frame for estimate values from emmeans with all interactions
+pairs(emmeans_lme4_leaf_thickness)
+contrasts_leaf_thickness_df <- as.data.frame(pairs(emmeans_lme4_leaf_thickness))
+head(contrasts_leaf_thickness_df)
+
+contrasts_leaf_thickness_df <- contrasts_leaf_thickness_df |>
+  separate(
+    contrast,
+    into = c("calluna_NiN_type", "age_class"),
+    sep = " - "
+  )
+```
+
+```{r}
+#| label: point plot with error bars leaf thickness
+
+point_plot_leaf_thickness <- ggplot(
+  multicomp_leaf_thickness_df,
+  aes(
+    x = age_class,
+    y = mean_leaf_thickness,
+    colour = calluna_NiN_type,
+    group = calluna_NiN_type
+  )
+) +
+  geom_line(
+    colour = "grey70",
+    linewidth = 0.6,
+    position=position_dodge(width = 0.9)
+  ) +
+  geom_point(
+    position = position_dodge(0.9),
+    size = 3
+  ) +
+  scale_color_manual(values = NIN) +
+  geom_errorbar(
+    aes(
+      ymin = mean_leaf_thickness - se_leaf_thickness,
+      ymax = mean_leaf_thickness + se_leaf_thickness
+    ),
+    width = 0.2,
+    position = position_dodge(0.9)
+  ) +
+  geom_text(
+    aes(
+      y = mean_leaf_thickness + se_leaf_thickness,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean leaf thickness (mm) of C. vulgaris across age class and NiN type",
+          x="Age class", y="Leaf thickness (mm)", fill="NiN type")
+
+point_plot_leaf_thickness
+
+
+# Save with specific dimensions and high DPI
+ggsave("point_plot_leaf_thickness.png", plot = point_plot_leaf_thickness, width = 7, height = 4, dpi = 300)
+```
+
+```{r}
+#| label: Barchart leaf thickness
+
+ggplot(multicomp_leaf_thickness_df, 
+       aes(x = age_class, y = mean_leaf_thickness, group= calluna_NiN_type, fill = calluna_NiN_type,
+           ymin = mean_leaf_thickness - se_leaf_thickness, ymax = mean_leaf_thickness + se_leaf_thickness)) +
+  geom_col(position = position_dodge(0.9)) +
+  geom_errorbar(position = position_dodge(0.9), width=0.2) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  geom_text(
+    aes(
+      y = mean_leaf_thickness + se_leaf_thickness,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean leaf thickness (mm) of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="Leaf thickness (mm)", fill="NiN type")
+```
+
+```{r}
+#| label: Plot with circles and different levels of significance leaf thickness
+
+
+ggplot(contrasts_leaf_thickness_df,
+       aes(calluna_NiN_type, age_class)) +
+  geom_point(
+    aes(size = abs(estimate),
+        fill = estimate),
+    shape = 21
+  ) +
+  geom_text(
+    aes(label = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01  ~ "**",
+      p.value < 0.05  ~ "*",
+      TRUE ~ ""
+    )),
+    size = 5,
+    nudge_y = 0.2)+
+  theme(
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1,
+      vjust = 1
+    )) + 
+  labs(title="Mean leaf thickness (mm) of Calluna vulgaris across age class and NiN type")+
+  theme(plot.title.position = "plot") +
+  coord_equal()+
+  scale_fill_gradient2(
+    low = "brown",
+    mid = "white",
+    high = "darkgreen",
+    midpoint=0
+  ) 
+
+
+
+
+```
+
+```{r}
+#| label: ggp plot leaf thickness with automatic plot function
+
+#Place letters above the tallest datapoint in each age class
+
+cld_leaf_thickness <- cld_leaf_thickness %>%
+  mutate(
+    label_y = case_when(
+      age_class == "Pioneer"  ~ 0.83,
+      age_class == "Building" ~ 0.83,
+      age_class == "Mature"   ~ 0.83
+    )
+  )
+
+ggp_leaf_thickness <- ggp1(
+  "leaf_thickness_mean",
+  cld_leaf_thickness,
+  "Mean leaf thickness (mm)",
+  expression("Mean leaf thickness (mm) of" ~ italic("C. vulgaris") ~ "across age class and NiN type")
+)
+
+ggp_leaf_thickness
+
+# Save with specific dimensions and high DPI
+ggsave("ggp_leaf_thickness.png", plot = ggp_leaf_thickness, width = 7, height = 4, dpi = 300)
+```
+
+This is in the report:
+
+```{r}
+#| label: Without violins and boxplots leaf thickness
+
+
+
+results_ggp_leaf_thickness <- ggplot(cleaned_data, aes(x = calluna_NiN_type, y = leaf_thickness_mean, color = calluna_NiN_type)) +
+  geom_quasirandom(dodge.width = 1, 
+                   alpha = 0.6,
+                   size = 1,
+                   width = 0.3)+
+  geom_pointrange(data=cld_leaf_thickness, 
+                  aes(x=calluna_NiN_type, y=emmean, ymin=lower.CL, ymax=upper.CL, group=age_class), 
+                  color="black",
+                  size=0.8,
+                  fatten=2,
+                  position=position_dodge(width=1))+
+  geom_text(
+    data = cld_leaf_thickness,
+    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+    position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    vjust = -0.5,                             # Nudges letters slightly upward
+    color = "black",
+    fontface= "bold",
+    show.legend = FALSE
+  )+
+  scale_fill_manual(values = NIN) +
+  scale_color_manual(values = NIN) +
+  labs(x = NULL, y = "Leaf thickness (mm)", color = "NiN type", title = "Mean leaf thickness (mm) of" ~ italic("Calluna vulgaris") ~ "across age class and NiN type")+
+  scale_y_continuous(
+    expand = expansion(mult = c(0.05, 0.15))
+  )+
+  theme(plot.title = element_text(hjust = 0.7),
+        panel.grid.minor = element_blank(),
+        panel.grid.major.x = element_blank(),
+        legend.position = "bottom",
+        legend.justification = "center"
+  ) +
+  facet_wrap(~ age_class)
+
+results_ggp_leaf_thickness
+
+results_export_leaf_thickness <- results_ggp_leaf_thickness +
+  theme(plot.title = element_blank())
+
+# Save with specific dimensions and high DPI
+ggsave("results_export_leaf_thickness.png", plot = results_export_leaf_thickness, width = 7, height = 4, dpi = 300)
+```
+
+# Presenting results SLA
+
+```{r}
+#| label: Plots to visualize emmeans output for SLA
+
+emmip(emmeans_lme4_SLA, calluna_NiN_type ~ age_class, CIs=TRUE) #If confidence intervals are largely overlapping it is more likely the groups are not siginficantly different
+plot(emmeans_lme4_SLA, comparisons=TRUE) #Overlapping arrows mean the groups are likely not significantly different from each other
+
+
+#dataframe with multicomp, adding significance groups from emmeans
+cld_SLA <- cld(
+  emmeans_lme4_SLA,
+  adjust = "tukey",
+  Letters = letters
+)
+
+multicomp_SLA_df <- left_join(
+  df_sum_SLA,
+  cld_SLA %>%
+    dplyr::select(age_class, calluna_NiN_type, .group),
+  by = c("age_class", "calluna_NiN_type")
+)
+
+
+#data frame for estimate values from emmeans with all interactions
+pairs(emmeans_lme4_SLA)
+contrasts_SLA_df <- as.data.frame(pairs(emmeans_lme4_SLA))
+head(contrasts_SLA_df)
+
+contrasts_SLA_df <- contrasts_SLA_df |>
+  separate(
+    contrast,
+    into = c("calluna_NiN_type", "age_class"),
+    sep = " - "
+  )
+```
+
+```{r}
+#| label: point plot with error bars SLA
+
+point_plot_SLA <- ggplot(
+  multicomp_SLA_df,
+  aes(
+    x = age_class,
+    y = mean_SLA,
+    colour = calluna_NiN_type,
+    group = calluna_NiN_type
+  )
+) +
+  geom_line(
+    colour = "grey70",
+    linewidth = 0.6,
+    position=position_dodge(width = 0.9)
+  ) +
+  geom_point(
+    position = position_dodge(0.9),
+    size = 3
+  ) +
+  scale_color_manual(values = NIN) +
+  geom_errorbar(
+    aes(
+      ymin = mean_SLA - se_SLA,
+      ymax = mean_SLA + se_SLA
+    ),
+    width = 0.2,
+    position = position_dodge(0.9)
+  ) +
+  geom_text(
+    aes(
+      y = mean_SLA + se_SLA,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean SLA of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="SLA", fill="NiN type")
+point_plot_SLA
+
+
+# Save with specific dimensions and high DPI
+ggsave("point_plot_SLA.png", plot = point_plot_SLA, width = 7, height = 4, dpi = 300)
+```
+
+```{r}
+#| label: Barchart SLA
+
+ggplot(multicomp_SLA_df, 
+       aes(x = age_class, y = mean_SLA, group= calluna_NiN_type, fill = calluna_NiN_type,
+           ymin = mean_SLA - se_SLA, ymax = mean_SLA + se_SLA)) +
+  geom_col(position = position_dodge(0.9)) +
+  geom_errorbar(position = position_dodge(0.9), width=0.2) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  geom_text(
+    aes(
+      y = mean_SLA + se_SLA,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean SLA of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="SLA", fill="NiN type")
+
+
+
+#| label: Plot with circles and different levels of significance SLA
+
+ggplot(contrasts_SLA_df,
+       aes(calluna_NiN_type, age_class)) +
+  geom_point(
+    aes(size = abs(estimate),
+        fill = estimate),
+    shape = 21
+  ) +
+  geom_text(
+    aes(label = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01  ~ "**",
+      p.value < 0.05  ~ "*",
+      TRUE ~ ""
+    )),
+    size = 5,
+    nudge_y = 0.2)+
+  theme(
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1,
+      vjust = 1
+    )) + 
+  labs(title="Mean SLA of Calluna vulgaris across age class and NiN type")+
+  theme(plot.title.position = "plot") +
+  coord_equal()+
+  scale_fill_gradient2(
+    low = "brown",
+    mid = "white",
+    high = "darkgreen",
+    midpoint=0
+  ) 
+
+
+
+
+```
+
+```{r}
+#| label: ggp plot SLA with automatic plot function
+
+#Place letters above the tallest datapoint in each age class
+
+cld_SLA <- cld_SLA %>%
+  mutate(
+    label_y = case_when(
+      age_class == "Pioneer"  ~ 118,
+      age_class == "Building" ~ 118,
+      age_class == "Mature"   ~ 118
+    )
+  )
+
+ggp_SLA <- ggp1(
+  "SLA",
+  cld_SLA,
+  expression(SLA ~ (mm^2 ~ g^"-1")),
+  expression("Specific leaf area (SLA) of" ~ italic("C. vulgaris") ~ "across age class and NiN type")
+)
+
+ggp_SLA
+
+# Save with specific dimensions and high DPI
+ggsave("ggp_SLA.png", plot = ggp_SLA, width = 7, height = 4, dpi = 300)
+```
+
+```{r}
+#| label: Without violins and boxplots SLA
+
+
+
+results_ggp_SLA <- ggplot(cleaned_data, aes(x = calluna_NiN_type, y = SLA, color = calluna_NiN_type)) +
+  geom_quasirandom(dodge.width = 1, 
+                   alpha = 0.6,
+                   size = 1,
+                   width = 0.3)+
+  geom_pointrange(data=cld_SLA, 
+                  aes(x=calluna_NiN_type, y=emmean, ymin=lower.CL, ymax=upper.CL, group=age_class), 
+                  color="black",
+                  size=0.8,
+                  fatten=2,
+                  position=position_dodge(width=1))+
+  geom_text(
+    data = cld_SLA,
+    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+    position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    vjust = -0.5,                             # Nudges letters slightly upward
+    color = "black",
+    fontface= "bold",
+    show.legend = FALSE
+  )+
+  scale_fill_manual(values = NIN) +
+  scale_color_manual(values = NIN) +
+  labs(x = NULL, y = expression(SLA ~ (cm^2 ~ g^-1)), color = "NiN type", title = expression("Specific leaf area" ~ (cm^2 ~ g^-1) ~ "of" ~ italic("Calluna vulgaris") ~ "across age class and NiN type"))+
+  scale_y_continuous(
+    expand = expansion(mult = c(0.05, 0.15))
+  )+
+  theme(plot.title = element_text(hjust = 0.95),
+        panel.grid.minor = element_blank(),
+        panel.grid.major.x = element_blank(),
+        legend.position = "bottom",
+        legend.justification = "center"
+  ) +
+  facet_wrap(~ age_class)
+
+results_ggp_SLA
+
+results_export_SLA <- results_ggp_SLA +
+  theme(plot.title = element_blank())
+
+# Save with specific dimensions and high DPI
+ggsave("results_export_SLA.png", plot = results_export_SLA, width = 7, height = 4, dpi = 300)
+```
+
+# Presenting results LDMC
+
+```{r}
+#| label: Plots to visualize emmeans output LDMC
+
+
+emmip(emmeans_lme4_LDMC, calluna_NiN_type ~ age_class, CIs=TRUE) #If confidence intervals are largely overlapping it is more likely the groups are not siginficantly different
+plot(emmeans_lme4_LDMC, comparisons=TRUE) #Overlapping arrows mean the groups are likely not significantly different from each other
+
+
+#dataframe with multicomp, adding significance groups from emmeans
+cld_LDMC <- cld(
+  emmeans_lme4_LDMC,
+  adjust = "tukey",
+  Letters = letters
+)
+
+multicomp_LDMC_df <- left_join(
+  df_sum_LDMC,
+  cld_LDMC %>%
+    dplyr::select(age_class, calluna_NiN_type, .group),
+  by = c("age_class", "calluna_NiN_type")
+)
+
+
+#data frame for estimate values from emmeans with all interactions
+pairs(emmeans_lme4_LDMC)
+contrasts_LDMC_df <- as.data.frame(pairs(emmeans_lme4_LDMC))
+head(contrasts_LDMC_df)
+
+contrasts_LDMC_df <- contrasts_LDMC_df |>
+  separate(
+    contrast,
+    into = c("calluna_NiN_type", "age_class"),
+    sep = " - "
+  )
+```
+
+```{r}
+#| label: point plot with error bars LDMC
+
+point_plot_LDMC <- ggplot(
+  multicomp_LDMC_df,
+  aes(
+    x = age_class,
+    y = mean_LDMC,
+    colour = calluna_NiN_type,
+    group = calluna_NiN_type
+  )
+) +
+  geom_point(
+    position = position_dodge(0.9),
+    size = 3
+  ) +
+  scale_color_manual(values = NIN) +
+  geom_errorbar(
+    aes(
+      ymin = mean_LDMC - se_LDMC,
+      ymax = mean_LDMC + se_LDMC
+    ),
+    width = 0.2,
+    position = position_dodge(0.9)
+  ) +
+  geom_text(
+    aes(
+      y = mean_LDMC + se_LDMC,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean LDMC of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="LDMC", fill="NiN type")
+point_plot_LDMC
+
+# Save with specific dimensions and high DPI
+ggsave("point_plot_LDMC.png", plot = point_plot_LDMC, width = 7, height = 4, dpi = 300)
+
+
+#| label: Barchart LDMC
+
+
+ggplot(multicomp_LDMC_df, 
+       aes(x = age_class, y = mean_LDMC, group= calluna_NiN_type, fill = calluna_NiN_type,
+           ymin = mean_LDMC - se_LDMC, ymax = mean_LDMC + se_LDMC)) +
+  geom_col(position = position_dodge(0.9)) +
+  geom_errorbar(position = position_dodge(0.9), width=0.2) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  geom_text(
+    aes(
+      y = mean_LDMC + se_LDMC,
+      label = .group
+    ),
+    position = position_dodge(0.9),
+    vjust=-0.5,
+    show.legend = FALSE
+  )+ labs(title="Mean LDMC of Calluna vulgaris across age class and NiN type",
+          x="Age class", y="LDMC", fill="NiN type")
+
+
+
+#| label: Plot with circles and different levels of significance LDMC
+
+
+ggplot(contrasts_LDMC_df,
+       aes(calluna_NiN_type, age_class)) +
+  geom_point(
+    aes(size = abs(estimate),
+        fill = estimate),
+    shape = 21
+  ) +
+  geom_text(
+    aes(label = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01  ~ "**",
+      p.value < 0.05  ~ "*",
+      TRUE ~ ""
+    )),
+    size = 5,
+    nudge_y = 0.2)+
+  theme(
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1,
+      vjust = 1
+    )) + 
+  labs(title="Mean LDMC of Calluna vulgaris across age class and NiN type")+
+  theme(plot.title.position = "plot") +
+  coord_equal()+
+  scale_fill_gradient2(
+    low = "brown",
+    mid = "white",
+    high = "darkgreen",
+    midpoint=0
+  ) 
+
+
+
+
+```
+
+```{r}
+#| label: ggp plot LDMC with automatic plot function
+
+#Place letters above the tallest datapoint in each age class
+
+cld_LDMC <- cld_LDMC %>%
+  mutate(
+    label_y = case_when(
+      age_class == "Pioneer"  ~ 0.52,
+      age_class == "Building" ~ 0.52,
+      age_class == "Mature"   ~ 0.52
+    )
+  )
+
+ggp_LDMC <- ggp1(
+  "LDMC",
+  cld_LDMC,
+  expression(LDMC ~ (g ~ g^"-1")),
+  expression("Leaf dry matter content (LDMC) of" ~ italic("C. vulgaris") ~ "across age class and NiN type")
+)
+
+ggp_LDMC
+
+# Save with specific dimensions and high DPI
+ggsave("ggp_LDMC.png", plot = ggp_LDMC, width = 7, height = 4, dpi = 300)
+```
+
+In the report:
+
+```{r}
+#| label: Without violins and boxplots LDMC
+
+
+
+results_ggp_LDMC <- ggplot(cleaned_data, aes(x = calluna_NiN_type, y = LDMC, color = calluna_NiN_type)) +
+  geom_quasirandom(dodge.width = 1, 
+                   alpha = 0.6,
+                   size = 1,
+                   width = 0.3)+
+  geom_pointrange(data=cld_LDMC, 
+                  aes(x=calluna_NiN_type, y=emmean, ymin=lower.CL, ymax=upper.CL, group=age_class), 
+                  color="black",
+                  size=0.8,
+                  fatten=2,
+                  position=position_dodge(width=1))+
+  geom_text(
+    data = cld_LDMC,
+    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+    position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    vjust = -0.5,                             # Nudges letters slightly upward
+    color = "black",
+    fontface= "bold",
+    show.legend = FALSE
+  )+
+  scale_fill_manual(values = NIN) +
+  scale_color_manual(values = NIN) +
+  labs(x = NULL, y = expression(LDMC ~ (g ~ g^-1)), color = "NiN type", title = expression("Leaf dry matter content" ~ (g ~ g^-1) ~ "of" ~ italic("Calluna vulgaris") ~ "across age class and NiN type"))+
+  scale_y_continuous(
+    expand = expansion(mult = c(0.05, 0.15))
+  )+
+  theme(plot.title = element_text(hjust = 0.5),
+        panel.grid.minor = element_blank(),
+        panel.grid.major.x = element_blank(),
+        legend.position = "bottom",
+        legend.justification = "center"
+  ) +
+  facet_wrap(~ age_class)
+
+results_ggp_LDMC
+
+results_export_LDMC <- results_ggp_LDMC +
+  theme(plot.title = element_blank())
+
+# Save with specific dimensions and high DPI
+ggsave("results_export_LDMC.png", plot = results_export_LDMC, width = 7, height = 4, dpi = 300)
+```
+
+```{r}
+#| label: SLA and LDMC relationship
+
+
+ggplot(cleaned_data,
+       aes(x = SLA, y = LDMC)) +
+  
+  # scatter points
+  geom_point(aes(color = calluna_NiN_type),
+             size = 1.5, alpha = 0.4) +
+  
+  # fitted regression line by age class
+  geom_smooth(
+    aes(colour = calluna_NiN_type),
+    method = "lm",
+    se = TRUE,
+    linewidth = 1.3,
+    colour = "black"
+  ) +
+  
+  # optional: label
+  labs(
+    x = "SLA",
+    y = "LDMC",
+    title = "SLA vs LDMC",
+    color = "NiN type"
+  ) +
+  facet_wrap(~ age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  theme_bw(base_size = 16) +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_blank()
+  )
+
+
+ggplot(cleaned_data, aes(SLA, LDMC)) +
+  geom_point(
+    colour = "grey70",
+    alpha = 0.25,
+    size = 1.5
+  ) +
+  geom_smooth(
+    aes(colour = calluna_NiN_type),
+    method = "lm",
+    se = FALSE,
+    linewidth = 1.3
+  ) +
+  facet_wrap(~ age_class) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) 
+
+```
