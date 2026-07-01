@@ -1611,6 +1611,18 @@ check_model(log_leaf_area)
 #| label: Testing correlations between traits
 
 #Look at trait pairs scatterplot to evaluate if pearson is more appropriate than spearman, relationships are widely scattered, but more linear so pearson is better
+
+traits_compiled <- cleaned_data[, c(
+  "height_cm",
+  "leaf_area",
+  "leaf_thickness_mean",
+  "SLA",
+  "LDMC"
+)]
+
+traits_compiled <- na.omit(traits_compiled)
+
+
 pairs(traits_compiled)
 
 corr <- cor(cleaned_data[, c(
@@ -1633,6 +1645,32 @@ summary(corr)
 
 
 ```
+```{r}
+#| label: scaling trait values for glm model
+
+
+cleaned_data <- cleaned_data %>%
+  mutate(across(c(SLA, LDMC, leaf_area, leaf_thickness_mean, height_cm),
+                ~ as.numeric(scale(.)),
+                .names = "{.col}_scaled"))
+
+#Test if scaling successful
+#vector of column names
+
+cols <- c("SLA_scaled", "LDMC_scaled", "leaf_area_scaled",
+          "leaf_thickness_mean_scaled", "height_cm_scaled")
+
+#should be close to 0, which it is here
+cleaned_data %>%
+  summarise(across(all_of(cols), mean, na.rm = TRUE))
+
+#should be close to 1, which it is here
+cleaned_data %>%
+  summarise(across(all_of(cols), sd, na.rm = TRUE))
+
+```
+
+
 
 ```{r}
 #| label: Trait correlation network and MANOVA
@@ -1706,21 +1744,10 @@ summary(manova_mod, test = "Pillai")
 #Emmeans post-hos test for Manova??
 ```
 
+
 ```{r}
-#| label: Visualizing MANOVA results with PCA
+#| label: Dataframes for PCA
 
-traits_compiled <- cleaned_data[, c(
-  "height_cm",
-  "leaf_area",
-  "leaf_thickness_mean",
-  "SLA",
-  "LDMC"
-)]
-
-traits_compiled <- na.omit(traits_compiled)
-
-pca <- prcomp(traits_compiled, scale. = TRUE)
-summary(pca)
 
 traits_NiN_age <- cleaned_data[, c(
   "height_cm",
@@ -1745,19 +1772,65 @@ colnames(traits_NiN_age) <- c(
 
 
 traits_NiN_age <- na.omit(traits_NiN_age)
+```
+
+```{r}
+#| label: PCA by prcomp
+
+pca_prcomp <- prcomp(traits_compiled, scale. = TRUE)
+summary(pca_prcomp)
+
+scores_prcomp <- cbind(
+ traits_NiN_age,
+ PC1_prcomp = pca$x[,1],
+ PC2_prcomp = pca$x[,2]
+ )
+
+#Calculate % for the plot axis
+ pca_importance_prcomp <- summary(pca_prcomp)$importance
+ pc1_percent_prcomp <- round(pca_importance_prcomp[2, 1] * 100, 1)
+ pc2_percent_prcomp <- round(pca_importance_prcomp[2, 2] * 100, 1)
+
+```
+
+
+
+```{r}
+#| label: PCA by vegan package
+
+
+# 1. Run the PCA using rda()
+# scale = TRUE standardizes the traits (equivalent to scale. = TRUE in prcomp)
+pca_vegan <- rda(traits_compiled, scale = TRUE)
+summary(pca_vegan)
+
+
+# 3. Get the trait loadings (equivalent to pca$rotation)
+# In vegan, these are called 'species' scores
+round(scores(pca_vegan, display = "species", choices = 1:2, scaling = 0), 3)
+
+# 4. Extract site scores and combine with your metadata (equivalent to pca$x)
+pca_scores <- scores(pca_vegan, display = "sites", choices = 1:2)
 
 scores <- cbind(
   traits_NiN_age,
-  PC1 = pca$x[,1],
-  PC2 = pca$x[,2]
+  PC1 = pca_scores[, "PC1"],
+  PC2 = pca_scores[, "PC2"]
 )
 
-#Calculate % for the plot axis
-pca_importance <- summary(pca)$importance
-pc1_percent <- round(pca_importance[2, 1] * 100, 1)
-pc2_percent <- round(pca_importance[2, 2] * 100, 1)
+# 5. Calculate % variation for the plot axes
+# eigenvals() extracts the eigenvalues from the vegan model
+eigenvalues <- summary(eigenvals(pca_vegan))
+pc1_percent <- round(eigenvalues["Proportion Explained", "PC1"] * 100, 1)
+pc2_percent <- round(eigenvalues["Proportion Explained", "PC2"] * 100, 1)
+```
 
 
+```{r}
+#| label: PCA_vegan visualize results
+
+
+#Visualize PCA_vegan results
 #Can already see from PC1 that mature and pioneer separate in multivariate trait space, don't overlap much, whereas building is intermediate and overlaps with both
 
 ggplot(
@@ -1776,7 +1849,131 @@ ggplot(
     x = paste0("PC1 (", pc1_percent, "%)"), 
     y = paste0("PC2 (", pc2_percent, "%)")  
   )
+
+
+####Other plot
+
+site_scores <- as.data.frame(scores(pca_vegan, display = "sites"))
+species_scores <- as.data.frame(scores(pca_vegan, display = "species"))
+species_scores$Species <- rownames(species_scores)
+
+# Calculate explained variance for axis labels
+scaling_info <- summary(pca_vegan)$cont$importance
+pc1_var <- round(scaling_info[2, 1] * 100, 1)
+pc2_var <- round(scaling_info[2, 2] * 100, 1)
+
+ggplot() +
+  # Draw species vectors (arrows)
+  geom_segment(data = species_scores,
+               aes(x = 0, y = 0, xend = PC1, yend = PC2),
+               arrow = arrow(length = unit(0.2, "cm")), color = "darkred", alpha = 0.7) +
+  # Smart species labels that don't overlap
+  geom_text_repel(data = species_scores, 
+                  aes(x = PC1, y = PC2, label = Species),
+                  color = "darkred", size = 3, fontface = "italic") +
+  # Draw site points
+  geom_point(data = site_scores, 
+             aes(x = PC1, y = PC2), 
+             color = "royalblue", size = 2.5, alpha = 0.8) +
+  # Dynamic axis titles with % variance explained
+  labs(x = paste0("PC1 (", pc1_var, "%)"), 
+       y = paste0("PC2 (", pc2_var, "%)"),
+       title = "Principal Component Analysis (PCA)") +
+  theme_minimal() +
+  theme(panel.border = element_rect(color = "black", fill = NA, size = 1))
+
+
 ```
+
+
+```{r}
+#| label: betadisper, anova, permutest, TukeyHSD, PERMANOVA
+
+#Test if FH has a stronger multivariate separation that BH and TH 
+#The FH group exhibited the largest confidence ellipse, suggesting greater multivariate dispersion in functional trait composition than BH and TH, whereas TH showed the most compact distribution
+
+dist_mat <- dist(scale(traits_compiled))
+
+bd_NiN <- betadisper(dist_mat, traits_NiN_age$calluna_NiN_type)
+
+anova(bd_NiN)
+permutest(bd_NiN)
+TukeyHSD(bd_NiN)
+plot(bd_NiN, kind = "boxplot", xlab = "NiN type", ylab = "Distance to centroid")
+
+#Hypothesis: trait variance may decrease with age if mature plants converge on a conservative strategy -test with betadisper as well
+
+bd_age <- betadisper(dist_mat, traits_NiN_age$age_class)
+
+anova(bd_age)
+permutest(bd_age)
+TukeyHSD(bd_age)
+
+# Boxplot from betadisper object
+plot(bd_age, kind = "boxplot", xlab = "Age class", ylab = "Distance to centroid")
+
+
+#Result meets assumption of homogeneity, but shows no significant difference in the multivariate dispersion in functional trait composition across age class. Hypothesis disproved: trait variance does not significantly decrease with age 
+
+
+
+#PERMANOVA test
+#Use euclidean as functional traits are continuous hysical measurements
+#The age class PERMANOVA tells you if traits vary across ages, completely ignoring NiN types.
+#The NiN type PERMANOVA tells you if traits vary across habitat types, completely ignoring age.
+
+permanova_age_class <- adonis2(dist_mat ~ age_class, 
+                            data = traits_NiN_age, 
+                            method = "euclidean",     
+                            permutations = 999)
+
+print(permanova_age_class)
+
+#Show significant results, but not the direction of the shift. It means the overall phenotype (the combination of all 5 functional traits) of the species significantly shifts across age class. Need to investigate age class gradient. 
+
+permanova_NiN <- adonis2(dist_mat ~ calluna_NiN_type, 
+                            data = traits_NiN_age, 
+                            method = "euclidean",     
+                            permutations = 999)
+
+print(permanova_NiN)
+
+
+# Run a two-way PERMANOVA with an interaction term to include interaction of age class and NiN type
+#age_class: Does trait variation change across ages overall?
+#NiN_type: Does trait variation change across NiN types overall?
+#age_class:NiN_type (The Interaction): Is the effect of age different depending on the NiN type?
+
+permanova_age_NiN <- adonis2(dist_mat ~ age_class * calluna_NiN_type, 
+                           data = traits_NiN_age, 
+                           method = "euclidean", 
+                           permutations = 999,
+                           by = "margin")
+
+print(permanova_age_NiN)
+
+#Pairwise PERMANOVA post hoc-test to check if the centroids of the Pioneer and Mature ellipses are significantly different from each other
+
+# To install pairwiseAdonis: remotes::install_github("pmartinezarbizu/pairwiseAdonis/pairwiseAdonis")
+library(pairwiseAdonis)
+
+# Run pairwise comparisons on your original distance matrix for age class
+pairwise_age <- pairwise.adonis2(dist_mat ~ age_class, data = traits_NiN_age)
+
+print(pairwise_age)
+
+
+# NiN type
+pairwise_NiN <- pairwise.adonis2(dist_mat ~ calluna_NiN_type, data = traits_NiN_age)
+
+print(pairwise_NiN)
+
+
+
+```
+
+
+
 
 There is quite a big overlap of NiN types, showing they have less of a distinct effect on the traits and age class slightly stringer effect, especially seen with FH pioneer Calluna
 
@@ -1801,8 +1998,23 @@ labs(
   x = paste0("PC1 (", pc1_percent, "%)"), 
   y = paste0("PC2 (", pc2_percent, "%)")  
 )
+```
 
 
+```{r}
+#| label: pca plots for each individual trait
+
+#To visualize and and explain how age class and NiN inyteract for each trait
+#color-code your points by both factors or use facets. A great way to do this visually is to plot separate PCA panels for each NiN type, showing the successional trajectory (Pioneer → Building → Mature) within each habitat. If the trajectories point in different directions or have different lengths, that is your significant interaction in action
+
+ggplot(traits_NiN_age, aes(x = age_class, y = `Leaf area`, color = calluna_NiN_type, group = calluna_NiN_type)) +
+  stat_summary(fun = mean, geom = "line", size = 1) +
+  stat_summary(fun = mean, geom = "point", size = 3) +
+  theme_minimal() +
+  scale_color_manual(values = NIN)
+  labs(title = "Interaction Plot for leaf area", x = "Age Class", y = "Mean Trait Value")
+  
+  #This plot shows exactly what the individual plots by trait show further up in the script
 
 
 ```
@@ -1810,9 +2022,11 @@ labs(
 ```{r}
 #| label: PCA biplot
 
+#Use prcomp pca analysis for these plots as the factoextra is compatible with this format, but the results are mathematically identical for the vegan pca, they yield the exact same coordinates, percentages, and arrows
+
 
 fviz_pca_biplot(
-  pca,
+  pca_prcomp,
   habillage = traits_NiN_age$age_class,
   addEllipses = TRUE,
   label="var",
@@ -1824,7 +2038,7 @@ scale_color_manual(values = AGE)
 #By NiN type
 
 fviz_pca_biplot(
-  pca,
+  pca_prcomp,
   habillage = traits_NiN_age$calluna_NiN_type,
   addEllipses = TRUE,
   label="var",
@@ -1849,7 +2063,7 @@ custom_labels <- data.frame(
 
 
 biplot_NiN <- fviz_pca_biplot(
-  pca,
+  pca_prcomp,
   habillage = traits_NiN_age$calluna_NiN_type,
   addEllipses = TRUE,
   ellipse.level = 0.68,
@@ -1931,54 +2145,23 @@ biplot_age
 #| label: Individuals only plots, to see if age class occupies different trait space
 
 fviz_pca_ind(
-  pca,
+  pca_prcomp,
   habillage = traits_NiN_age$age_class,
   addEllipses = TRUE,
   repel = TRUE
 )+
   scale_color_manual(values = AGE)
 
-fviz_pca_ind(
-  pca,
-  habillage = traits_NiN_age$calluna_NiN_type,
-  addEllipses = TRUE,
-  repel = TRUE
-)+
-  scale_color_manual(values = NIN)
 
 #Trait only, to see which traits drive the PCA
 fviz_pca_var(
-  pca,
+  pca_prcomp,
   repel = TRUE
 )
 ```
 
 This model is not logical as NiN and age class are categorical variables. Need to figure out which model could be more suitable to answer research question.
 
-```{r}
-#| label: scaling trait values for glm model
-
-
-cleaned_data <- cleaned_data %>%
-  mutate(across(c(SLA, LDMC, leaf_area, leaf_thickness_mean, height_cm),
-                ~ as.numeric(scale(.)),
-                .names = "{.col}_scaled"))
-
-#Test if scaling successful
-#vector of column names
-
-cols <- c("SLA_scaled", "LDMC_scaled", "leaf_area_scaled",
-          "leaf_thickness_mean_scaled", "height_cm_scaled")
-
-#should be close to 0, which it is here
-cleaned_data %>%
-  summarise(across(all_of(cols), mean, na.rm = TRUE))
-
-#should be close to 1, which it is here
-cleaned_data %>%
-  summarise(across(all_of(cols), sd, na.rm = TRUE))
-
-```
 
 ```{r}
 #| label: glm model with NiN type as resonse variable to the traits?
@@ -1988,94 +2171,6 @@ cleaned_data %>%
 
 ```
 
-Need to work on this section and understand what is happening, what will this contribute to for the analysis? can i make an RDA with directionality for age classes and NiN, but not every interaction?
-
-```{r}
-#| label: Redundancy analysis (RDA) analysis
-
-
-
-library(dplyr)
-library(vegan)
-library(ggplot2)
-library(ggrepel)
-
-# 1. PREPARE THE DATA: Create a clean combined grouping column
-traits_NiN_age_combined <- traits_NiN_age %>%
-  mutate(
-    # Clean up the strings slightly so the final labels are short and tidy
-    short_age = gsub("age_class", "", age_class),
-    short_type = gsub("calluna_NiN_type", "", calluna_NiN_type),
-    # Combine them into a single factor
-    site_group = paste(short_age, short_type, sep = "_")
-  )
-
-# 2. RUN THE NEW RDA MODEL (Additive on the combined group)
-rda_mod_combined <- rda(
-  traits_compiled ~ site_group,
-  data = traits_NiN_age_combined, 
-  scale = TRUE
-)
-
-# Check the new statistics
-anova(rda_mod_combined)
-anova(rda_mod_combined, by = "terms", permutations = 999)
-
-# 3. EXTRACT SCORES 
-# Notice we use display = "cn" (centroids) instead of "bp" (biplot arrows)
-species_scores <- as.data.frame(scores(rda_mod_combined, display = "species", scaling = 2))
-species_scores$trait <- rownames(species_scores)
-
-centroid_scores <- as.data.frame(scores(rda_mod_combined, display = "cn", scaling = 2))
-# Clean up the row names so "site_group" isn't prepended to every label
-rownames(centroid_scores) <- gsub("site_group", "", rownames(centroid_scores))
-centroid_scores$variable <- rownames(centroid_scores)
-
-
-# 4. BUILD THE CLEAN GGPLOT
-ggplot(species_scores, aes(RDA1, RDA2)) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "grey70") +
-  geom_vline(xintercept = 0, linetype = "dashed", color = "grey70") +
-  
-  # Trait arrows
-  geom_segment(
-    aes(x = 0, y = 0, xend = RDA1, yend = RDA2),
-    arrow = arrow(length = unit(0.2, "cm")),
-    linewidth = 0.7,
-    color = "steelblue"
-  ) +
-  geom_text_repel(
-    aes(label = trait),
-    size = 4,
-    box.padding = 0.4,
-    point.padding = 0.3,
-    max.overlaps = Inf,
-    color = "steelblue"
-  ) +
-  
-  # Clean Group Centroids (No more overlapping baseline interactions!)
-  geom_point(
-    data = centroid_scores,
-    aes(x = RDA1, y = RDA2),
-    color = "darkred",
-    size = 3.5,
-    shape = 17 
-  ) +
-  geom_text_repel(
-    data = centroid_scores,
-    aes(x = RDA1, y = RDA2, label = variable),
-    color = "darkred",
-    size = 3.5,
-    fontface = "bold",
-    box.padding = 0.6,
-    point.padding = 0.4
-  ) +
-  coord_equal() +
-  theme_classic() +
-  labs(x = "RDA1", y = "RDA2")
-
-
-```
 
 # Presenting results wet mass
 
@@ -3435,7 +3530,7 @@ results_ggp_leaf_area <- ggplot(cleaned_data, aes(x = calluna_NiN_type, y = leaf
   )+
   scale_fill_manual(values = NIN) +
   scale_color_manual(values = NIN) +
-  labs(x= NULL, y = expression(Leaf ~ area ~ (mm^2)), color = "NiN type", title=expression("Leaf area" ~ (mm^2) ~ "of" ~ italic("C. vulgaris") ~ "across age class and NiN type"))+
+  labs(x= NULL, y = expression(Leaf ~ area ~ (cm^2)), color = "NiN type", title=expression("Leaf area" ~ (cm^2) ~ "of" ~ italic("C. vulgaris") ~ "across age class and NiN type"))+
   scale_y_continuous(
     expand = expansion(mult = c(0.05, 0.15))
   )+
