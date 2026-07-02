@@ -37,6 +37,7 @@ library(vegan) #RDA analysis
 library(ggrepel) #RDA plot making
 library(ggbeeswarm)
 library(ggnewscale) #Visuals of PCA
+library(pairwiseAdonis) #pairwise PERMANOVA # To install pairwiseAdonis: remotes::install_github("pmartinezarbizu/pairwiseAdonis/pairwiseAdonis")
 
 
 
@@ -1894,15 +1895,17 @@ ggplot() +
 
 dist_mat <- dist(scale(traits_compiled))
 
-bd_NiN <- betadisper(dist_mat, traits_NiN_age$calluna_NiN_type)
+bd_NiN <- betadisper(dist_mat, traits_NiN_age$calluna_NiN_type) 
 
 anova(bd_NiN)
 permutest(bd_NiN)
-TukeyHSD(bd_NiN)
+TukeyHSD(bd_NiN) #Results significant for BH-FH and TH-FH, but not for TH-BH, indicate FH differed significantly in dispersion from the other two NiN types
 plot(bd_NiN, kind = "boxplot", xlab = "NiN type", ylab = "Distance to centroid")
 
-#Hypothesis: trait variance may decrease with age if mature plants converge on a conservative strategy -test with betadisper as well
 
+
+
+#Hypothesis: trait variance may decrease with age if mature plants converge on a conservative strategy -test with betadisper
 bd_age <- betadisper(dist_mat, traits_NiN_age$age_class)
 
 anova(bd_age)
@@ -1911,7 +1914,6 @@ TukeyHSD(bd_age)
 
 # Boxplot from betadisper object
 plot(bd_age, kind = "boxplot", xlab = "Age class", ylab = "Distance to centroid")
-
 
 #Result meets assumption of homogeneity, but shows no significant difference in the multivariate dispersion in functional trait composition across age class. Hypothesis disproved: trait variance does not significantly decrease with age 
 
@@ -1954,9 +1956,6 @@ print(permanova_age_NiN)
 
 #Pairwise PERMANOVA post hoc-test to check if the centroids of the Pioneer and Mature ellipses are significantly different from each other
 
-# To install pairwiseAdonis: remotes::install_github("pmartinezarbizu/pairwiseAdonis/pairwiseAdonis")
-library(pairwiseAdonis)
-
 # Run pairwise comparisons on your original distance matrix for age class
 pairwise_age <- pairwise.adonis2(dist_mat ~ age_class, data = traits_NiN_age)
 
@@ -1969,6 +1968,8 @@ pairwise_NiN <- pairwise.adonis2(dist_mat ~ calluna_NiN_type, data = traits_NiN_
 print(pairwise_NiN)
 
 
+#Double check PERMANOVA was carried out correctly, row names equal
+all(rownames(cleaned_data) == rownames(dist_mat))
 
 ```
 
