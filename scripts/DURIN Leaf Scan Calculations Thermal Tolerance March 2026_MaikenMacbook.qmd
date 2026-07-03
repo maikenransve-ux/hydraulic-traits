@@ -1,0 +1,113 @@
+---
+title: "DURIN Leaf Scan Calculations"
+author: "Sonya R. Geange"
+format: html
+editor: visual
+---
+
+# Calculate leaf area
+
+```{r}
+# Load libraries
+devtools::install_github("richardjtelford/LeafArea")
+library(LeafArea)
+library(plyr)
+library(dplyr)
+
+```
+
+```{r function_leaf_area}
+#### Function to calculate leaf area
+loop.files <-  function(files) {
+  file.copy(files, new.folder)
+  if (grepl("-NA$", files)) {
+    newfile <- basename(files)
+    file.rename(paste0(new.folder, "/", newfile),
+                paste0(new.folder,
+                       "/", gsub("-NA$", "", newfile)))
+  }
+  print(files)
+  area <-
+    try(run.ij(
+      path.imagej = "/Users/maikenransve/Downloads/ImageJ/ImageJ.app", 
+      set.directory = new.folder,
+      distance.pixel = 234,
+      known.distance = 2,
+      log = TRUE,
+      low.size = 0.005,
+      trim.pixel = 100,
+      trim.pixel.right = 250, #250 for bigger images, 60 for smaller size
+      trim.pixel.top = 3000, #3000 for bigger images, 1500 for smaller size
+      save.image = TRUE
+    ))
+  if (inherits(area, "try-error")) {
+    return(data.frame(LeafArea = NA))
+  }
+  file.copy(dir(new.folder, full.names = TRUE, pattern = "\\.tif"),
+            output.folder)
+  Sys.sleep(0.1)
+  if (any(!file.remove(dir(new.folder, full.names = TRUE))))
+    stop()
+  res <-
+    data.frame(ID = names(unlist(area[[2]])), LeafArea = (unlist(area[[2]])))
+  return(res)
+}
+
+
+# If required
+# test run.ij on a subfolder.
+run.ij(
+  path.imagej = "/Users/maikenransve/Downloads/ImageJ/ImageJ.app",
+  set.directory = "/Users/maikenransve/Downloads/calluna_march2026/Test_folder",
+  distance.pixel = 234,
+  known.distance = 2,
+  log = TRUE,
+  low.size = 0.05,
+  trim.pixel = 100,
+  trim.pixel.top = 3000, #2900 for bigger images
+  save.image = TRUE
+)
+
+
+
+```
+
+# Calculate Lygra Thermal Tolerance Leaf Scans
+
+```{r}
+###########################################################################
+#### Calculate leaf area for 2025-2026 DURIN Calluna Leaf Scans thermal tolerance
+# Make a list of files, temporary folder and output folder
+# Be sure to adjust the file path directory if required
+# These need to be downloaded from the OSF account. 
+# Note, each site has a folder and several subfolders.
+# Because of how often errors occur, run each folder seperately
+# Some images also required editing, i.e. painting overlapping leaves etc.
+# A default address could be 'raw_data/leaf_scans/DURIN_leaf_scans/
+
+# The folder with the scan images
+list.of.files <- dir(path = paste0("/Users/maikenransve/Downloads/calluna_march2026/Largerimages_Calluna_march2026/"), pattern = "jpeg|jpg", recursive = TRUE, full.names = TRUE)
+# A default Temp folder that can be created as it's processing
+new.folder <- "/Users/maikenransve/Downloads/calluna_march2026/Largerimages_Calluna_march2026/Temp"
+# Where you want the thresholded images to be saved, and also the output csv
+output.folder <- "/Users/maikenransve/Downloads/calluna_march2026/Largerimages_Calluna_march2026/output/" 
+
+# Run function
+# Returns a dataframe with each particle and it's area, using a concatenated ID
+LeafArea.raw_total <- plyr::ldply(list.of.files, loop.files)
+
+
+# calculate sums of the leaf area
+leaf_area <- LeafArea.raw_total |>
+  # Create and ID column based on the the first characters of the image file
+  mutate(ID = substr(ID, 1, 7)) |>
+  # Use the imageID to group the 'particles' leaves within
+  group_by(ID) |>
+  # Calculate per image, the number of particles and sum the areas of each
+  dplyr::summarise(n = n(),
+            leaf_area = sum(LeafArea))
+
+# save data as csv
+dim(leaf_area) # check you have the correct number of rows to match input images
+write.csv(leaf_area, file = "/Users/maikenransve/Downloads/calluna_march2026/Largerimages_Calluna_march2026/output/DURIN_Calluna_leaf_area_large_march2026.csv")
+```

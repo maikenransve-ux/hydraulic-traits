@@ -1,0 +1,604 @@
+---
+title: "DURIN 2025 Plant Functional Traits -Hydraulics"
+author: "Sonya R Geange"
+format: html
+editor: visual
+---
+
+## Import Data
+
+```{r}
+#| label: loading libraries
+#| message: false 
+
+# installing / loading packages 
+
+library(readxl) # Enables excel file import
+library(tidyverse) # Contains many helpful packages, i.e. dplyr etc.
+library(janitor) # Has tools for data cleaning 
+library(lubridate) # Date and time formatting
+library(readr) # Data importation functions
+library(stringr) # String and character text
+
+```
+
+```{r}
+#| label: importing raw data of traits
+#| message: false 
+
+# Eventually this will download from the DURIN OSF
+# For now, download the excel from google sheets and save in your projects 'raw_data' folder.
+# If using projects just need "./filenam.xlsx'
+# If not in projects, need full path name
+
+# Read plant functional trait data (excluding leaf area)
+raw_data <- read_excel("/Users/maikenransve/Library/CloudStorage/OneDrive-Personal/Dokumenter/Uni work/Uni work work/raw_data/2025 DURIN Plant Functional Traits - Hydraulics.xlsx", 
+  sheet = "Data", # Choose the sheet from excel
+  na = c("", "NA")) # NAs are actually imported as NAs, not as characters 
+```
+
+```{r}
+#| label: clean trait dataset to match DURIN formatting
+
+
+# Change some column names to snake_case standard
+# Change any column names to match DURIN standards - some outlined here (https://github.com/Durin-project/Durin_data)
+# Some information will be specific to traits, fluorescence etc.
+# using slice() to remove the first three row of example data (ALWAYS CHECK!)
+
+raw_data <- raw_data %>% 
+  # New name then old name of column, including snake case ('_' and lower letters)
+  rename(site_name = siteID,
+         age_class = ageClass,
+         collection_time = CollTime,
+         paired_with = PairedWith,
+         burn_year_original = burn_year,
+         calluna_NiN_type = NiN_type) %>%  
+  slice(-(1:1)) # Remove first row (excluding headers)
+
+
+# Check variable types (character, numeric etc)
+glimpse(raw_data)
+
+# Changing classes of all variables that should be in class factor
+raw_data <- raw_data %>%  
+  mutate(across(c(site_name, species, project_2025, project, age_class, burn_year_original, plant_nr, leaf_age, sample, paired_with, calluna_shoot_type,scanned), as.factor))
+
+
+# Changing classes of variables that should be in class dbl/numeric
+raw_data <- raw_data |>
+    mutate(across(c(wet_mass_g, leaf_thickness_1_mm, leaf_thickness_2_mm, leaf_thickness_3_mm, dry_mass_g), as.numeric))
+
+# Changing classes of all variables that should be in class integers
+raw_data <- raw_data |>
+    mutate(across(c(day, bulk_nr_leaves, leaf_nr), as.integer))
+
+# Recheck data types again
+glimpse(raw_data) 
+
+
+# Order relevant variables (useful for plotting and order based analyses)
+# age_class sorted from youngest to oldest
+
+raw_data$age_class <- factor((raw_data$age_class),
+                         levels = c("Pioneer", 
+                                    "Building", "Mature"))
+# Check if changed successfully
+levels(raw_data$age_class)
+
+
+# Converting day, month, year column into one column on the format yyyy_mm_dd
+# removing the day and year columns, keep month for data cleaning checking for now      
+
+
+
+
+#Should collection time be included, because in hydraulic traits there is only collection day??????
+
+
+
+
+
+raw_data <- raw_data %>% 
+  mutate(date  = ymd_hm(paste(year, month, day,
+                 format(collection_time, format = "%H:%M"))), .after = 1)  %>% 
+  select(-c(day, year, collection_time)) 
+
+
+glimpse(raw_data) 
+
+# To help with plotting, make month an ordered factor (more useful one more months)
+raw_data <- raw_data %>%
+  mutate(month = factor(month, levels = c("November", "December", "January", "March")))
+
+
+
+
+#Should the unique plantID include NiN type and burn year??
+
+
+
+# Create a unique plant_ID given age_class, month, and plant_nr
+raw_data <- raw_data %>%   # assuming you already created Month/date_day earlier
+  mutate(
+    unique_plantID = paste(age_class, month, plant_nr, sep = "_")
+  )
+```
+
+```{r}
+#| label: import leaf area dataset tidy and match to trait dataset
+
+
+# Change this to your local repository where the four excel output files are stored
+leaf_area_dir <- "C:/Users/sge010/Downloads/DURIN_Thermal_March_2026/output/" 
+
+# Import leaves from the directory where the files are saved, only .csv files, return the file paths (not just file names)
+leaf_area_raw <- list.files(leaf_area_dir, pattern = "\\.csv$", full.names = TRUE) %>%
+  # Give each element the name of the source file (remove directory path)
+  setNames(basename(.)) %>%
+  # Read each .csv file into R, combine into a single dataframe
+  # Add an ID column, indicating the source file
+  purrr::map_df(~ readr::read_csv(.x, show_col_types = FALSE), .id = "source_file")
+
+
+# Clean and summarize files to get leaf area per envelopeID
+leaf_area_raw <- leaf_area_raw %>%
+  dplyr::select(-dplyr::matches("^Unnamed")) %>%   # drop index col if present
+  dplyr::mutate(
+    # Create new column names, and/or update the datatype for a given column
+    envelope_ID = str_trim(as.character(ID)),
+    leaf_area_scanned_bulk_nr = as.numeric(n),
+    leaf_area_sum = as.numeric(leaf_area)
+  ) %>%
+  # remove old column, comments is deleted as should be in the trait datasheet area check tab
+  select(-c('...1',ID, n,leaf_area, comments))
+
+# Choose correct value per envelope_ID based on the source file, i.e. edited or not
+leaf_area_clean <- leaf_area_raw %>% 
+  # Use the phrase 'edited_images' in the file name to prioritize
+  mutate(priority = if_else(str_detect(source_file, "edited_images"), 1, 2)) %>%  
+  arrange(envelope_ID, priority) %>%   # ordering so preferred rows come first
+  distinct(envelope_ID, .keep_all = TRUE) %>%   # keeping first row per ID
+  select(-priority) # removing helper column
+
+
+
+# Join the clean leaf area db to the main trait db by the envelope ID
+data <- raw_data %>%
+  dplyr::mutate(envelope_ID = stringr::str_trim(as.character(envelope_ID))) %>%
+  # Left join, keep values from x, and only matching rows in y (leaf_area_clean)
+  dplyr::left_join(leaf_area_clean, by = "envelope_ID")
+
+```
+
+# Data Cleaning Entire Dataframe
+
+Above was cleaning of column names, formatting of variables etc. Now we need to identify any mistakes in the data entry, outliers etc.
+
+```{r}
+#| label: standardize comments and remarks
+
+# Find unique comments in the dataset
+unique(data$remark)
+
+# Multiple comment strings in the column (EXAMPLE ONLY AT THE MOMENT!)
+
+
+```
+
+```{r}
+#| label: adjusting bulk_nr values per trait
+
+# While the bulk number from the envelope represents the initial sample size, sometimes leaves are lost or gained during the trait sampling process. Need to check comments and the particple count from the leaf area scans to adjust the bulk number leaves for each trait. This needs to be done before calculating per leaf trait values, which can be used for metrics like SLA and LDMC.
+
+# Relies on cleaned remarks column from step above
+
+# Order of trait measurements is: fvfm_initial, wet_mass, leaf_area, leaf_thickness, dry_mass
+
+```
+
+# Calculate per leaf trait values
+
+```{r}
+#| label: calculate bulk nr for each trait
+
+# Before checking for outliers, need to convert traits to 'per leaf' values, else outliers might simply reflect a shift in the leaf numbers for 'absolute' values.
+
+# Note, this is only for wet mass, leaf area, dry mass.
+# For fluorescence this is per sample in the clip
+# For thickness, each measurement (1-3) needs to be checked first, then averaged in cae one of the replicate samples is an outlier and will skew the average thickness
+
+
+# Default column is the intiial bulk_nr, initial values for following trait derived from prior trait + edits via comments
+
+data$bulk_nr_wet_mass <- data$bulk_nr_leaves
+
+
+# Modify based on the wet mass comments
+data <- data %>%
+  mutate(bulk_nr_wet_mass = case_when(
+    grepl("3 leaves at wet mass", remark) ~ 3,
+    .default = bulk_nr_wet_mass    # Keep original bulk nr value if no comment is applied to row
+  ))
+
+# Create leaf area, rename the particle counts from scanner. More accurate then comments for values less than 4. However, sometimes leaves break into multiple parts, so the particle count may be higher than the leaf count artificially.
+data <- data %>% 
+  rename(bulk_nr_leaf_area = leaf_area_scanned_bulk_nr)
+
+# Modify based on the wet mass comments
+data <- data %>%
+  mutate(bulk_nr_leaf_area = case_when(
+    # Checked against images, indeed 5 leaves (not broken)
+    grepl("5 leaves at scanning", remark) ~ 5,
+    grepl("3 leaves at scanning", remark) ~ 3,
+    .default = bulk_nr_leaf_area    # Keep original bulk nr value if no comment is applied to row
+  ))
+
+# Check count of leaf numbers by the remark column to help identify issues
+# We have 5, 6, 7 and 8's
+table(data$remark, data$bulk_nr_leaf_area)
+
+# Find rows where leaf number for area is higher than leaf number for wet mass
+# Need to go and check 1) leaf scans, 2) envelopes to see if extra particles are in envelope, 3) remarks column, 4) the excel tab on leaf area checks
+bulk_nr_issues <- data %>%
+  filter(bulk_nr_leaf_area > bulk_nr_wet_mass) %>% 
+  select(envelope_ID, remark, bulk_nr_leaves, bulk_nr_wet_mass, bulk_nr_leaf_area)
+
+
+# Address each outcome by envelope_ID
+# AEI1422 actually has 5 leaves- see comment edit above
+# ADM0437 actually has 5 leaves - see comment edit above
+# All other envelopes have correct number based on the wet mass column in the images, so correct back to the wet mass values
+
+
+# Modify based on the comments, checking images etc. 
+data <- data %>%
+  mutate(bulk_nr_leaf_area = case_when(
+    # Envelope ID's are X, then do Y
+    grepl("AEI1422", envelope_ID) ~ 5,
+    grepl("ADM0437", envelope_ID) ~ 5,    
+    grepl("5 leaves at scanning", remark) ~ 5,
+    grepl("3 leaves at scanning", remark) ~ 3,
+    .default = bulk_nr_wet_mass    # Keep original bulk nr value if no comment is applied to row
+  ))
+
+
+
+
+# Note, for thickness the value is note correct by bulk leaf number, however, if there are fewer than three leaves, there may only be one or two leaf thickness measurements to average across. 
+data$bulk_nr_thickness <- data$bulk_nr_leaf_area
+
+# Check how many envelopes have fewer than three thickness measurements
+bulk_nr_issues_thickness <-  data %>%
+  filter(rowSums(across(starts_with("leaf_thickness_"), ~ . > 0)) < 3)
+
+# No issues!
+
+# Modify based on the thickness comments
+data <- data %>%
+  mutate(bulk_nr_thickness = case_when(
+    grepl("3 leaves at thickness", remark) ~ 3,
+    grepl("5 leaves at thickness", remark) ~ 5,
+    .default = bulk_nr_thickness    # Keep original bulk nr value if no comment is applied to row
+  ))
+
+
+# Create dry mass bulk nr based on thickness
+data$bulk_nr_dry_mass <- data$bulk_nr_thickness
+
+# Modify based on the dry mass comments
+data <- data %>%
+  mutate(bulk_nr_dry_mass = case_when(
+    grepl("3 leaves at dry mass", remark) ~ 3,
+    grepl("5 leaves at dry mass", remark) ~ 5,
+    .default = bulk_nr_dry_mass    # Keep original bulk nr value if no comment is applied to row
+  ))
+
+```
+
+```{r}
+#| label: calculate per leaf values for each trait
+
+data <- data %>% 
+  mutate(
+    wet_mass = wet_mass_g / bulk_nr_wet_mass,
+    leaf_area = leaf_area_sum / bulk_nr_leaf_area,
+    dry_mass = dry_mass_g / bulk_nr_dry_mass
+  ) %>% 
+  # Round the decimal places
+  mutate(
+    wet_mass = round(wet_mass, digits = 5),
+    leaf_area = round(leaf_area, digits = 3),
+    dry_mass = round(dry_mass, digits =  5)
+  )
+
+```
+
+# Check trait outliers
+
+```{r}
+#| label: check plant height (vegetative) outliers
+
+# making a scatterplot for vegetative plant height per plant
+(data %>% 
+         filter(proj_2025 == "Traits") %>% 
+       ggplot(aes(x = factor(plant_nr), y = height_vegetative, colour = factor(plant_nr))) +
+  geom_point(size = 2, alpha = 0.8,
+             position = position_jitter(width = 0.15)) +
+  facet_grid(age_class ~ month) +
+  theme_bw() +
+  labs(
+    x = "Plant number",
+    y = "Plant Height - Vegetative (cm)",
+    title = "Mean Vegetative Plant Height (cm) by plant, age class and month"
+  ))
+
+
+# making a scatterplot for flowering plant height per plant
+(data %>% 
+         filter(proj_2025 == "Traits") %>% 
+       ggplot(aes(x = factor(plant_nr), y = height_flower, colour = factor(plant_nr))) +
+  geom_point(size = 2, alpha = 0.8,
+             position = position_jitter(width = 0.15)) +
+  facet_grid(age_class ~ month) +
+  theme_bw() +
+  labs(
+    x = "Plant number",
+    y = "Plant Height - Flowering (cm)",
+    title = "Mean Flowering Plant Height (cm) by plant, age class and month"
+  ))
+
+
+# Flowering vs vegetative plant height
+# Flowering height should probably be taller than vegetative height
+# So above the 1:1 line
+
+ggplot(data %>%  filter(proj_2025 == "Traits"),
+       aes(x = height_vegetative, y = height_flower)) +
+  
+  # scatter points
+  geom_point(aes(colour = factor(plant_nr), shape = factor(age_class)),
+             size = 2, alpha = 0.7) +
+  
+  # 1:1 reference line
+  geom_abline(slope = 1, intercept = 0,
+              linetype = "dashed", colour = "grey50") +
+  
+  # fitted regression line
+  geom_smooth(method = "lm", se = TRUE, colour = "blue") +
+  
+  # optional: label
+  labs(
+    x = "Vegetative Height (cm)",
+    y = "Flowering Height (cm)",
+    title = "Flowering vs Vegetative Plant Height",
+    subtitle = "Dashed line = 1:1 reference, blue line = fitted linear trend",
+    colour = "plant_nr"
+  ) +
+  
+  theme_bw()
+```
+
+```{r}
+#| label: check wet mass outliers (per leaf)
+
+# making a scatterplot for wet mass mean for trait leaves, plant_nr on x-axis and weight in g on y-axis
+(data %>% 
+         filter(proj_2025 == "Traits") %>% 
+       ggplot(aes(x = factor(plant_nr), y = wet_mass, colour = factor(plant_nr))) +
+  geom_point(size = 2, alpha = 0.8,
+             position = position_jitter(width = 0.15)) +
+  facet_grid(age_class ~ month) +
+  theme_bw() +
+  labs(
+    x = "Plant number",
+    y = "Wet mass (g)",
+    title = "Mean wet mass per leaf by plant, age class and month"
+  ))
+
+
+```
+
+```{r}
+#| label: check leaf area outliers (per leaf)
+
+# making scatterpolt for leaf area mean for trait leaves, plant_nr on x-axis and mean leaf area on y-axis. by plant nr, age class, month 
+ggplot(data %>%  filter(proj_2025 == "Traits"),
+       aes(x = factor(plant_nr), y = leaf_area, colour = factor(plant_nr))) +
+  geom_point(size = 2, alpha = 0.8,
+             position = position_jitter(width = 0.15)) +
+  facet_grid(age_class ~ month) +
+  theme_bw() +
+  labs(
+    x = "Plant number",
+    y = "Leaf area (mm2)",
+    title = "Leaf area by plant, age class and month"
+  )
+
+# Check source file issues
+ggplot(data %>%  filter(proj_2025 == "Traits"),
+       aes(x = factor(plant_nr), y = leaf_area, colour = factor(source_file))) +
+  geom_point(size = 2, alpha = 0.8,
+             position = position_jitter(width = 0.15)) +
+  facet_grid(age_class ~ month) +
+  theme_bw() +
+  labs(
+    x = "Plant number",
+    y = "Leaf area (mm2)",
+    title = "Leaf area by plant, age class and month"
+  )
+
+# Check source file issues
+ggplot(data %>%  filter(proj_2025 == "Traits"),
+       aes(x = factor(plant_nr), y = leaf_area, colour = factor(source_file))) +
+  geom_point(size = 2, alpha = 0.8,
+             position = position_jitter(width = 0.15)) +
+  facet_grid(age_class ~ source_file) +
+  theme_bw() +
+  theme(legend.position = "bottom") +
+  labs(
+    x = "Plant number",
+    y = "Leaf area (mm2)",
+    title = "Leaf area by plant, age class and month"
+  )
+```
+
+```{r}
+#| label: check leaf thickness outliers (per measurement 1-3 replicates)
+# histogram for leaf thickness distribution for trait leaves, not mean, rather seperate reps
+
+data_long_thickness <- data %>% 
+  filter(proj_2025 == "Traits") %>% 
+  pivot_longer( # to get the seperate columns reshaped
+    cols = c(leaf_thickness_1_mm, leaf_thickness_2_mm, leaf_thickness_3_mm),
+    names_to = "replicate",
+    values_to = "leaf_thickness_mm"
+  )
+
+ggplot(data_long_thickness, #plotting drom long format
+       aes(x = factor(plant_nr), y = leaf_thickness_mm, colour = factor(leaf_nr))) +
+  geom_point(size = 2, alpha = 0.8,
+             position = position_jitter(width = 0.15)) +
+  facet_grid(age_class ~ month) +
+  theme_bw() +
+  labs(
+    x = "Plant number",
+    y = "Leaf thickness (mm)",
+    title = "Leaf thickness replicates by plant, age class and month"
+  )
+
+
+
+ggplot(data_long_thickness, #plotting drom long format
+       aes(x = factor(plant_nr),
+           y = leaf_thickness_mm,
+           colour = factor(leaf_nr))) +
+  geom_point(size = 2, alpha = 0.8,
+             position = position_jitter(width = 0.15)) +
+  facet_grid(leaf_nr ~ age_class) +
+  theme_bw() +
+  labs(
+    x = "Plant number",
+    y = "Leaf thickness (mm)",
+    title = "Leaf thickness replicates by plant, age class and month"
+  )
+
+```
+
+```{r}
+#| label: check dry mass outliers (per leaf)
+
+# making a scatterplot for dry mass mean for trait leaves, plant_nr on x-axis and weight in g on y-axis
+ggplot(data |> filter(proj_2025 == "Traits"),
+       aes(x = factor(plant_nr), y = dry_mass, colour = factor(plant_nr))) +
+  geom_point(size = 2, alpha = 0.8,
+             position = position_jitter(width = 0.15)) +
+  facet_grid(age_class ~ month) +
+  theme_bw() +
+  labs(
+    x = "Plant number",
+    y = "Dry mass (g)",
+    title = "Mean dry mass per leaf by plant, age class and month"
+  )
+
+```
+
+```{r}
+#| label: wet mass vs dry mass
+
+
+ggplot(data %>%  filter(proj_2025 == "Traits"),
+       aes(x = wet_mass, y = dry_mass)) +
+  
+  # scatter points
+  geom_point(aes(colour = factor(plant_nr)),
+             size = 2, alpha = 0.7) +
+  
+  # 1:1 reference line
+  geom_abline(slope = 1, intercept = 0,
+              linetype = "dashed", colour = "grey50") +
+  
+  # fitted regression line
+  geom_smooth(method = "lm", se = TRUE, colour = "blue") +
+  
+  # optional: label
+  labs(
+    x = "Wet mass per leaf (g)",
+    y = "Dry mass per leaf (g)",
+    title = "Dry mass vs wet mass per leaf",
+    subtitle = "Dashed line = 1:1 reference, blue line = fitted linear trend",
+    colour = "plant_nr"
+  ) +
+  
+  theme_bw()
+
+```
+
+# Calculate SLA and LDMC
+
+#\| label: calculate SLA and LDMC
+
+```{r}
+#| label: calculate SLA and LDMC
+
+# Specific Leaf Area (SLA)
+data <- data %>%  
+  mutate(
+    SLA = ifelse(
+      !is.na(leaf_area) & !is.na(dry_mass), # excluding rows with NAs
+      leaf_area / dry_mass, # Leaf level metrics
+      NA_real_
+    )
+  )
+
+
+# Leaf Dry Matter Content (LDMC)
+data <- data %>% 
+  mutate(
+    LDMC = ifelse( # making new ldmc column
+      !is.na(dry_mass) & !is.na(wet_mass), # excluding rows with NAs
+      dry_mass / wet_mass, # Leaf level metrics
+      NA_real_
+    )
+  )
+```
+
+```{r}
+#| label: check SLA outliers (per leaf)
+
+# making a scatterplot for dry mass mean for trait leaves, plant_nr on x-axis and weight in g on y-axis
+ggplot(data %>%  filter(proj_2025 == "Traits"),
+       aes(x = factor(plant_nr), y = SLA, colour = factor(plant_nr))) +
+  geom_point(size = 2, alpha = 0.8,
+             position = position_jitter(width = 0.15)) +
+  facet_grid(age_class ~ month) +
+  theme_bw() +
+  labs(
+    x = "Plant number",
+    y = "SLA",
+    title = "Mean SLA per leaf by plant, age class and month"
+  )
+```
+
+```{r}
+#| label: check LDMC outliers (per leaf)
+
+# making a scatterplot for dry mass mean for trait leaves, plant_nr on x-axis and weight in g on y-axis
+ggplot(data %>%  filter(proj_2025 == "Traits"),
+       aes(x = factor(plant_nr), y = LDMC, colour = factor(plant_nr))) +
+  geom_point(size = 2, alpha = 0.8,
+             position = position_jitter(width = 0.15)) +
+  facet_grid(age_class ~ month) +
+  theme_bw() +
+  labs(
+    x = "Plant number",
+    y = "Leaf Dry Matter Content (LDMC)",
+    title = "Mean LDMC per leaf by plant, age class and month"
+  )
+```
+
+# Fluorescence Outlier Checking
+
+```{r}
+
+```
