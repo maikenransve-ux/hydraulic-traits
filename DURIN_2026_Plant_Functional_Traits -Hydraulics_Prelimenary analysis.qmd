@@ -15,11 +15,8 @@ editor: visual
 # installing / loading packages 
 
 library(readxl) # Enables excel file import
+library(here)
 library(tidyverse) # Contains many helpful packages, i.e. dplyr etc.
-library(readr) # Data importation functions
-library(stringr) # String and character text
-library(dplyr)
-library(ggplot2)
 library(ggridges) #Moving density plots
 library(rstatix)
 library(car)
@@ -29,7 +26,6 @@ library(afex) #linear mixed models
 library(lme4) #linear mixed models
 library(sdamr) #linear mixed models
 library(lmerTest)
-library(tidyr) #Data visualization, presenting results
 library(multcomp) #emmeans contrasts on plots
 library(factoextra) #PCA biplot
 library(corrplot)
@@ -53,14 +49,16 @@ theme_update(plot.title.position = "plot")
 #| message: false 
 
 # Read cleaned output file
-cleaned_data <- read_csv("/Users/maikenransve/Documents/Internship_DURIN/statistical analysis/data/clean_data/cleaned_data_copy.csv")
+cleaned_data <- read_csv(here::here("data/clean_data/cleaned_data_copy.csv"))
 
 
 
-#Creating a data frame
-cleaned_data <- as.data.frame(cleaned_data)
-cleaned_data$calluna_NIN_type <- factor(cleaned_data$calluna_NIN_type)
-cleaned_data$age_class <- factor(cleaned_data$age_class)
+# Order relevant variables (useful for plotting and order based analyses)
+# age_class sorted from youngest to oldest
+cleaned_data$calluna_NiN_type <- factor(cleaned_data$calluna_NiN_type,  levels = c("FH", "BH", "TH"))
+cleaned_data$age_class <- factor(cleaned_data$age_class, levels = c("Pioneer", 
+                                        "Building", "Mature"))
+
 
 #Add column of mean leaf thickness to cleaned data
 cleaned_data$leaf_thickness_mean <- rowMeans(cleaned_data[, c("leaf_thickness_1", "leaf_thickness_2", "leaf_thickness_3")], na.rm=TRUE)
@@ -73,23 +71,8 @@ cleaned_data$leaf_thickness_mean <- rowMeans(cleaned_data[, c("leaf_thickness_1"
 #| label: Data visualization and overview
 
 summary(cleaned_data)
-str(cleaned_data)
+glimpse(cleaned_data)
 
-# Order relevant variables (useful for plotting and order based analyses)
-# age_class sorted from youngest to oldest
-
-cleaned_data$age_class <- factor((cleaned_data$age_class),
-                             levels = c("Pioneer", 
-                                        "Building", "Mature"))
-# Check if changed successfully
-levels(cleaned_data$age_class)
-
-
-# Order NIN types
-cleaned_data$calluna_NiN_type <- factor((cleaned_data$calluna_NiN_type),
-                                    levels = c("FH", "BH", "TH"))
-# Check if changed successfully
-levels(cleaned_data$calluna_NiN_type)
 
 ## Define colour palette (used with scale fill manual) 
 
@@ -211,11 +194,11 @@ ggplot(cleaned_data, aes(x = wet_mass, y =calluna_NiN_type, fill=calluna_NiN_typ
 -General histogram: appears slightly right-skewed
 
 -similar trend to wet mass, but looks like in FH the BUI dry mass increases, then declines for Mat and for TH it decreases for BUI, then increases to Mat
-
+@fig-Data-frame-histogram-dry-mass shows ...
 \
 
 ```{r}
-#| label: Data frame + histogram dry mass
+#| label: fig-Data-frame-histogram-dry-mass
 
 df_sum_dry_mass <- cleaned_data %>%
   group_by(calluna_NiN_type, age_class) %>%
@@ -1646,6 +1629,7 @@ summary(corr)
 
 
 ```
+
 ```{r}
 #| label: scaling trait values for glm model
 
@@ -1670,8 +1654,6 @@ cleaned_data %>%
   summarise(across(all_of(cols), sd, na.rm = TRUE))
 
 ```
-
-
 
 ```{r}
 #| label: Trait correlation network and MANOVA
@@ -1713,8 +1695,6 @@ corrplot_export <- corrplot(corr,
          addCoef.col = "black",
          number.cex = 0.7,
          mar = c(0,0,1,0)) +
-  scale_x_discrete(labels = labels_corr) +
-  scale_y_discrete(labels = labels_corr) +
   scale_size_area(max_size = 15) +
   geom_text(aes(label = sprintf("%.2f", corr)),
             size = 3,
@@ -1744,7 +1724,6 @@ summary(manova_mod, test = "Pillai")
 
 #Emmeans post-hos test for Manova??
 ```
-
 
 ```{r}
 #| label: Dataframes for PCA
@@ -1783,8 +1762,8 @@ summary(pca_prcomp)
 
 scores_prcomp <- cbind(
  traits_NiN_age,
- PC1_prcomp = pca$x[,1],
- PC2_prcomp = pca$x[,2]
+ PC1_prcomp = pca_prcomp$x[,1],
+ PC2_prcomp = pca_prcomp$x[,2]
  )
 
 #Calculate % for the plot axis
@@ -1793,8 +1772,6 @@ scores_prcomp <- cbind(
  pc2_percent_prcomp <- round(pca_importance_prcomp[2, 2] * 100, 1)
 
 ```
-
-
 
 ```{r}
 #| label: PCA by vegan package
@@ -1825,7 +1802,6 @@ eigenvalues <- summary(eigenvals(pca_vegan))
 pc1_percent <- round(eigenvalues["Proportion Explained", "PC1"] * 100, 1)
 pc2_percent <- round(eigenvalues["Proportion Explained", "PC2"] * 100, 1)
 ```
-
 
 ```{r}
 #| label: PCA_vegan visualize results
@@ -1881,14 +1857,14 @@ ggplot() +
        y = paste0("PC2 (", pc2_var, "%)"),
        title = "Principal Component Analysis (PCA)") +
   theme_minimal() +
-  theme(panel.border = element_rect(color = "black", fill = NA, size = 1))
+  theme(panel.border = element_rect(color = "black", fill = NA, size = 1)) +
+  coord_equal()
 
 
 ```
 
-
 ```{r}
-#| label: betadisper, anova, permutest, TukeyHSD, PERMANOVA
+#| label: betadisper-anova-permutest-TukeyHSD
 
 #Test if FH has a stronger multivariate separation that BH and TH 
 #The FH group exhibited the largest confidence ellipse, suggesting greater multivariate dispersion in functional trait composition than BH and TH, whereas TH showed the most compact distribution
@@ -1915,11 +1891,12 @@ TukeyHSD(bd_age)
 # Boxplot from betadisper object
 plot(bd_age, kind = "boxplot", xlab = "Age class", ylab = "Distance to centroid")
 
-#Result meets assumption of homogeneity, but shows no significant difference in the multivariate dispersion in functional trait composition across age class. Hypothesis disproved: trait variance does not significantly decrease with age 
+#Result meets assumption of homogeneity, but shows no significant difference in the multivariate dispersion in functional trait composition across age class. Hypothesis disproved: trait variance does not significantly decrease with age
+```
 
 
-
-#PERMANOVA test
+```{r}
+#| label: PERMANOVA-test-pairwiseAdonis
 #Use euclidean as functional traits are continuous hysical measurements
 #The age class PERMANOVA tells you if traits vary across ages, completely ignoring NiN types.
 #The NiN type PERMANOVA tells you if traits vary across habitat types, completely ignoring age.
@@ -1973,6 +1950,39 @@ all(rownames(cleaned_data) == rownames(dist_mat))
 
 ```
 
+Got feedback that PERMANOVA and pairwise adonis might not be the best test to evaluate statistical differences in centroid means, therefore an RDA with ANOVA is carried out. For now, i've done the rda on the interaction between age class and NiN type to answer the research question , but could probably perform separate ones as well, as i've done with the PCA plots. The pca analysis does not include the interaction term, but the RDA does, so it is probably a more accurate analysis. 
+```{r}
+#| label: RDA-analysis-anova-posthoc
+
+
+rda <- rda(traits_compiled ~ calluna_NiN_type * age_class, data = traits_NiN_age)
+
+summary(rda)
+plot(rda)
+
+RsquareAdj(rda) #Total variance explained by rda
+
+anova(rda, permutations = 999) #Nothing to do with ANOVA, pseudo F-value, but the closest you get to ANOVA with ordination
+
+anova(rda, by ="axis") #Axis significance
+
+anova(rda, by = "terms") #significance by age class and Nin
+
+#Look at multicollinearity, >2 is considered high, variables are fine
+sqrt(vif.cca(rda))
+
+
+
+```
+```{r}
+#| label: Plot-RDA-results
+
+
+
+```
+
+
+
 
 
 
@@ -2000,7 +2010,6 @@ labs(
   y = paste0("PC2 (", pc2_percent, "%)")  
 )
 ```
-
 
 ```{r}
 #| label: pca plots for each individual trait
@@ -2049,7 +2058,6 @@ fviz_pca_biplot(
   scale_color_manual(values = NIN) +
   stat_ellipse(level = 0.68)
 ```
-
 
 ```{r}
 #| label: PCA biplots with different visuals
@@ -2107,7 +2115,7 @@ biplot_NiN
 
 
 biplot_age <- fviz_pca_biplot(
-  pca,
+  pca_prcomp,
   habillage = traits_NiN_age$age_class,
   addEllipses = TRUE,
   ellipse.level = 0.68,
@@ -2163,7 +2171,6 @@ fviz_pca_var(
 
 This model is not logical as NiN and age class are categorical variables. Need to figure out which model could be more suitable to answer research question.
 
-
 ```{r}
 #| label: glm model with NiN type as resonse variable to the traits?
 
@@ -2171,7 +2178,6 @@ This model is not logical as NiN and age class are categorical variables. Need t
 #testtraits <- lmerTest::lmer(calluna_NiN_type ~ SLA_scaled * LDMC_scaled * height_cm_scaled * leaf_thickness_mean_scaled * leaf_area_scaled  + (1|plant_id), data=cleaned_data, na.action = na.exclude)
 
 ```
-
 
 # Presenting results wet mass
 
