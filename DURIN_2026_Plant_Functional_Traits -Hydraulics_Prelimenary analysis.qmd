@@ -54,8 +54,8 @@ cleaned_data <- read_csv(here::here("data/clean_data/cleaned_data_copy.csv"))
 
 
 # Order relevant variables (useful for plotting and order based analyses)
-# age_class sorted from youngest to oldest
-cleaned_data$calluna_NiN_type <- factor(cleaned_data$calluna_NiN_type,  levels = c("FH", "BH", "TH"))
+# age_class sorted from youngest to oldest, NiN type sorted from wettest to driest
+cleaned_data$calluna_NiN_type <- factor(cleaned_data$calluna_NiN_type,  levels = c("BH","FH","TH"))
 cleaned_data$age_class <- factor(cleaned_data$age_class, levels = c("Pioneer", 
                                         "Building", "Mature"))
 
@@ -1776,6 +1776,14 @@ scores_prcomp <- cbind(
 ```{r}
 #| label: PCA by vegan package
 
+#improve visuals
+
+custom_labels <- data.frame(
+  Labels_traits = c("Leaf area", "SLA", "Vegetative height", "Leaf thickness", "LDMC"),
+  x = c(1.5,   3.6,  -2.9,  -2.4,  -1.5),  # ◄ Desired X positions on the plot
+  y = c(2.8,  -0.3,  -1.4,   2.1,   1.5)   # ◄ Desired Y positions on the plot
+)
+
 
 # 1. Run the PCA using rda()
 # scale = TRUE standardizes the traits (equivalent to scale. = TRUE in prcomp)
@@ -1795,6 +1803,19 @@ scores <- cbind(
   PC1 = pca_scores[, "PC1"],
   PC2 = pca_scores[, "PC2"]
 )
+
+# Trait loadings (variable vectors)
+loadings <- as.data.frame(
+  scores(
+    pca_vegan,
+    display = "species",
+    choices = 1:2,
+    scaling = 0
+  )
+)
+
+loadings$Variable <- rownames(loadings)
+loadings
 
 # 5. Calculate % variation for the plot axes
 # eigenvals() extracts the eigenvalues from the vegan model
@@ -1825,7 +1846,11 @@ ggplot(
   labs(
     x = paste0("PC1 (", pc1_percent, "%)"), 
     y = paste0("PC2 (", pc2_percent, "%)")  
-  )
+  ) 
+
+
+
+
 
 
 ####Other plot
@@ -1862,6 +1887,302 @@ ggplot() +
 
 
 ```
+```{r}
+#| label: PCA-plot-coloured-by-age-class
+
+library(grid)
+
+
+## Scale arrows to match score space
+
+
+arrow_scale <- min(
+  diff(range(scores$PC1))/diff(range(loadings$PC1)),
+  diff(range(scores$PC2))/diff(range(loadings$PC2))
+) * 0.75
+
+loadings <- loadings %>%
+  mutate(
+    PC1 = PC1 * arrow_scale,
+    PC2 = PC2 * arrow_scale
+  )
+
+#Labels traits into loading dataframe
+
+
+new_labels <- c(
+  height_cm = "Vegetative height",
+  leaf_area = "Leaf area",
+  leaf_thickness_mean = "Leaf thickness",
+  SLA = "SLA",
+  LDMC = "LDMC"
+)
+
+loadings$Variable <- ifelse(
+  loadings$Variable %in% names(new_labels),
+  new_labels[loadings$Variable],
+  loadings$Variable
+)
+
+
+#Offset arrow labels
+loadings <- loadings %>%
+  mutate(
+    label_x = PC1 * 1.08,
+    label_y = PC2 * 1.2
+  )
+
+pca_age_color <- ggplot(
+  scores,
+  aes(
+    PC1,
+    PC2,
+    colour = age_class,
+    shape = calluna_NiN_type
+  )
+) +
+
+geom_hline(yintercept = 0,
+           colour = "grey80",
+           linetype = 2) +
+
+geom_vline(xintercept = 0,
+           colour = "grey80",
+           linetype = 2) +
+
+stat_ellipse(
+  aes(group = age_class,
+      colour = age_class),
+  level = 0.68,
+  linewidth = 0.7,
+  show.legend = FALSE,
+  alpha = 0.5
+) +
+
+geom_point(
+  size = 2.2,
+  alpha = 0.65
+) +
+
+geom_segment(
+  data = loadings,
+  aes(
+    x = 0,
+    y = 0,
+    xend = PC1,
+    yend = PC2
+  ),
+  inherit.aes = FALSE,
+  colour = "grey25",
+  linewidth = 0.5,
+  arrow = arrow(length = unit(0.25,"cm"))
+) +
+
+geom_text_repel(
+  data = loadings,
+  aes(
+    x = label_x,
+    y = label_y,
+    label = Variable
+  ),
+  inherit.aes = FALSE,
+  colour = "grey20",
+  size = 4,
+  point.padding = 0.3,
+  box.padding = 0.5,
+  max.overlaps = Inf, 
+  segment.color = "grey80"
+) +
+
+scale_colour_manual(values = AGE) +
+
+scale_shape_manual(values = c(
+  BH = 16,
+  FH = 17,
+  TH = 15
+)) +
+
+coord_equal() +
+
+labs(
+  title = "PCA - Plant Traits",
+  x = paste0("PC1 (", round(summary(pca_prcomp)$importance[2,1]*100,1),"%)"),
+  y = paste0("PC2 (", round(summary(pca_prcomp)$importance[2,2]*100,1),"%)"),
+  colour = "Age class",
+  shape = "NiN type"
+) +
+
+theme_classic(base_size = 13) +
+
+theme(
+  plot.title = element_text(
+    face = "plain",
+    hjust = 0.5,
+    size = 18
+  ),
+
+  axis.title = element_text(
+    face = "plain",
+    size = 14
+  ),
+
+  axis.text = element_text(size = 12),
+
+  legend.title = element_text(
+    face = "plain",
+    size = 13
+  ),
+
+  legend.text = element_text(size = 12),
+
+  legend.position = "right"
+)
+
+pca_age_color
+
+#Saving output
+
+ggsave(
+ "PCA_plot_age.png",
+ width=10,
+ height=8,
+ dpi=300
+)
+
+```
+
+
+```{r}
+#| label: PCA-plot-coloured-by-NiN-type
+
+
+#Offset arrow labels
+loadings <- loadings %>%
+  mutate(
+    label_x2 = PC1 * 1.08,
+    label_y2 = PC2 * 1.05
+  )
+
+pca_NiN_color <- ggplot(
+  scores,
+  aes(
+    PC1,
+    PC2,
+    colour = calluna_NiN_type,
+    shape = age_class
+  )
+) +
+
+geom_hline(yintercept = 0,
+           colour = "grey80",
+           linetype = 2) +
+
+geom_vline(xintercept = 0,
+           colour = "grey80",
+           linetype = 2) +
+
+stat_ellipse(
+  aes(group = calluna_NiN_type,
+      colour = calluna_NiN_type),
+  level = 0.68,
+  linewidth = 0.7,
+  show.legend = FALSE,
+  alpha = 0.5
+) +
+
+geom_point(
+  size = 2.2,
+  alpha = 0.65
+) +
+
+geom_segment(
+  data = loadings,
+  aes(
+    x = 0,
+    y = 0,
+    xend = PC1,
+    yend = PC2
+  ),
+  inherit.aes = FALSE,
+  colour = "grey25",
+  linewidth = 0.5,
+  arrow = arrow(length = unit(0.25,"cm"))
+) +
+
+geom_text_repel(
+  data = loadings,
+  aes(
+    x = label_x2,
+    y = label_y2,
+    label = Variable
+  ),
+  inherit.aes = FALSE,
+  colour = "grey20",
+  size = 4,
+  point.padding = 0.3,
+  box.padding = 0.5,
+  max.overlaps = Inf, 
+  segment.color = "grey80"
+) +
+
+scale_colour_manual(values = NIN) +
+
+scale_shape_manual(values = c(
+  Pioneer = 16,
+  Building = 17,
+  Mature = 15
+)) +
+
+coord_equal() +
+
+labs(
+  title = "PCA - Plant Traits",
+  x = paste0("PC1 (", round(summary(pca_prcomp)$importance[2,1]*100,1),"%)"),
+  y = paste0("PC2 (", round(summary(pca_prcomp)$importance[2,2]*100,1),"%)"),
+  colour = "NiN type",
+  shape = "Age class"
+) +
+
+theme_classic(base_size = 13) +
+
+theme(
+  plot.title = element_text(
+    face = "plain",
+    hjust = 0.5,
+    size = 18
+  ),
+
+  axis.title = element_text(
+    face = "plain",
+    size = 14
+  ),
+
+  axis.text = element_text(size = 12),
+
+  legend.title = element_text(
+    face = "plain",
+    size = 13
+  ),
+
+  legend.text = element_text(size = 12),
+
+  legend.position = "right"
+)
+
+pca_NiN_color
+
+#Saving output
+
+ggsave(
+ "pca_NiN_color.png",
+ width=10,
+ height=8,
+ dpi=300
+)
+
+```
+
+
 
 ```{r}
 #| label: betadisper-anova-permutest-TukeyHSD
@@ -2062,13 +2383,6 @@ fviz_pca_biplot(
 ```{r}
 #| label: PCA biplots with different visuals
 
-#trying to improve visuals
-
-custom_labels <- data.frame(
-  Variable = c("Leaf area", "SLA", "Vegetative height", "Leaf thickness", "LDMC"),
-  x = c(1.5,   3.6,  -2.9,  -2.4,  -1.5),  # ◄ Desired X positions on the plot
-  y = c(2.8,  -0.3,  -1.4,   2.1,   1.5)   # ◄ Desired Y positions on the plot
-)
 
 
 biplot_NiN <- fviz_pca_biplot(
@@ -3483,8 +3797,10 @@ ggplot(contrasts_leaf_area_df,
   )
 ```
 
+
+
 ```{r}
-#| label: ggp plot leaf area with automatic plot function
+#| label: Without violins and boxplots leaf area
 
 #Place letters above the tallest datapoint in each age class
 
@@ -3497,21 +3813,6 @@ cld_leaf_area <- cld_leaf_area %>%
     )
   )
 
-ggp_leaf_area <- ggp1(
-  "leaf_area",
-  cld_leaf_area,
-  expression(Leaf ~ area ~ (mm^2)),
-  expression("Mean leaf area" ~ (mm^2) ~ "of" ~ italic("C. vulgaris") ~ "across age class and NiN type")
-)
-
-ggp_leaf_area
-
-# Save with specific dimensions and high DPI
-ggsave("ggp_leaf_area.png", plot = ggp_leaf_area, width = 7, height = 4, dpi = 300)
-```
-
-```{r}
-#| label: Without violins and boxplots leaf area
 
 
 
