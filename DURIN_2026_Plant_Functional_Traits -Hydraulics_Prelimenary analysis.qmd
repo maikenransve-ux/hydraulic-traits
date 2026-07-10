@@ -10,7 +10,7 @@ editor: visual
 # Importing data
 
 ```{r}
-#| label: load libraries
+#| label: load-libraries
 
 # installing / loading packages 
 
@@ -30,6 +30,7 @@ library(multcomp) #emmeans contrasts on plots
 library(factoextra) #PCA biplot
 library(corrplot)
 library(vegan) #RDA analysis
+library(ggdist) 
 library(ggrepel) #RDA plot making
 library(ggbeeswarm)
 library(ggnewscale) #Visuals of PCA
@@ -45,7 +46,7 @@ theme_update(plot.title.position = "plot")
 ```
 
 ```{r}
-#| label: importing raw data of traits
+#| label: importing-raw-data-of-traits
 #| message: false 
 
 # Read cleaned output file
@@ -68,7 +69,7 @@ cleaned_data$leaf_thickness_mean <- rowMeans(cleaned_data[, c("leaf_thickness_1"
 ```
 
 ```{r}
-#| label: Data visualization and overview
+#| label: Data-visualization-and-overview
 
 summary(cleaned_data)
 glimpse(cleaned_data)
@@ -89,7 +90,7 @@ AGE <- c("Pioneer" = "#087E8B","Building" = "#EB5461", "Mature" = "#884000")
 -Wet mass appears decreasing from Pio to Mat for BH and FH, but for TH the wet mass for Mat has increased to the level of Pio after decreasing in BUI, test for significance between BUI: FH vs TH
 
 ```{r}
-#| label: Data frame with mean, median and se + histogram wet mass
+#| label: Data-frame-with-mean-median-and-se-histogram-wet-mass
 
 df_sum_wet_mass <- cleaned_data %>%
   group_by(calluna_NiN_type, age_class) %>%
@@ -116,7 +117,7 @@ ggplot(cleaned_data, aes(x = wet_mass)) +
 Boxplot to check overlapping error bars and data medians
 
 ```{r}
-#| label: Boxplot wet mass
+#| label: Boxplot-wet-mass
 
 ggplot(cleaned_data, aes(x = age_class, y = wet_mass, fill = age_class)) +
   geom_boxplot(alpha = 0.6, outlier.shape = NA) +
@@ -128,7 +129,7 @@ ggplot(cleaned_data, aes(x = age_class, y = wet_mass, fill = age_class)) +
 ```
 
 ```{r}
-#| label: Violin plot wet mass
+#| label: Violin-plot-wet-mass
 
 ggplot(cleaned_data, aes(x = age_class, y = wet_mass, fill = age_class)) +
   geom_violin(trim = FALSE, alpha = 0.6) +
@@ -144,7 +145,7 @@ ggplot(cleaned_data, aes(x = age_class, y = wet_mass, fill = age_class)) +
 ```
 
 ```{r}
-#| label: Interactive plots wet mass
+#| label: Interactive-plots-wet-mass
 
 
 ggplot(df_sum_wet_mass, aes(x = age_class, y = mean_wet_mass, group = calluna_NiN_type, color = calluna_NiN_type)) +
@@ -160,7 +161,7 @@ ggplot(df_sum_wet_mass, aes(x = age_class, y = mean_wet_mass, group = calluna_Ni
 ```
 
 ```{r}
-#| label: Separating plant_nr for each factor: age class and NiN wet mass
+#| label: Separating-plant_nr-for-each-factor-age-class-and-NiN-wet-mass
 
 ggplot(cleaned_data, aes(x = age_class, y = wet_mass, group = plant_nr)) +
   # Draw the raw data points for every plant
@@ -176,7 +177,7 @@ ggplot(cleaned_data, aes(x = age_class, y = wet_mass, group = plant_nr)) +
 ```
 
 ```{r}
-#| label: Density Plot wet mass
+#| label: Density-Plot-wet-mass
 
 ggplot(cleaned_data, aes(x = wet_mass, y =calluna_NiN_type, fill=calluna_NiN_type)) +
   geom_density_ridges (alpha = 0.5)+ #To separate the density plots vertically
@@ -193,9 +194,7 @@ ggplot(cleaned_data, aes(x = wet_mass, y =calluna_NiN_type, fill=calluna_NiN_typ
 
 -General histogram: appears slightly right-skewed
 
--similar trend to wet mass, but looks like in FH the BUI dry mass increases, then declines for Mat and for TH it decreases for BUI, then increases to Mat
-@fig-Data-frame-histogram-dry-mass shows ...
-\
+-similar trend to wet mass, but looks like in FH the BUI dry mass increases, then declines for Mat and for TH it decreases for BUI, then increases to Mat @fig-Data-frame-histogram-dry-mass shows ...\
 
 ```{r}
 #| label: fig-Data-frame-histogram-dry-mass
@@ -642,11 +641,43 @@ ggplot(cleaned_data, aes(x = leaf_area, y=calluna_NiN_type, fill=calluna_NiN_typ
 ```{r}
 #| label: Data frame + histogram LDMC
 
+
+#Add mean for each age class
+mean_age <- cleaned_data %>%
+  group_by(age_class) %>%
+  summarise(mean_LDMC_age = mean(LDMC, na.rm = TRUE),
+            .groups = "drop")
+
+#Add se for age class
+se_age <- cleaned_data %>%
+  group_by(age_class) %>%
+  summarise(se_LDMC_age = sd(LDMC, na.rm = TRUE)/sqrt(n()), n = n(),
+            .groups = "drop")
+
+#Add mean for each NiN type
+mean_NiN <- cleaned_data %>%
+  group_by(calluna_NiN_type) %>%
+  summarise(mean_LDMC_NiN = mean(LDMC, na.rm = TRUE),
+            .groups = "drop")
+
+#Add se for NiN type
+se_NiN <- cleaned_data %>%
+  group_by(calluna_NiN_type) %>%
+  summarise(se_LDMC_Nin = sd(LDMC, na.rm = TRUE)/sqrt(n()), n = n(),
+            .groups = "drop")
+
+
+
 df_sum_LDMC <- cleaned_data %>%
   group_by(calluna_NiN_type, age_class) %>%
   summarise(mean_LDMC = mean(LDMC, na.rm=TRUE),
             se_LDMC = sd(LDMC, na.rm=TRUE)/sqrt(n()),
-            n = n(), .groups = "drop")
+            n = n(), .groups = "drop")  %>%
+  left_join(mean_age, by = "age_class") %>%
+  left_join(mean_NiN, by = "calluna_NiN_type") %>%
+  left_join(se_age, by = "age_class") %>%
+  left_join(se_NiN, by = "calluna_NiN_type")
+
 
 
 # Histogram
@@ -1466,7 +1497,7 @@ anova(lme4_dry_mass)
 
 (emmeans_lme4_dry_mass<- emmeans(lme4_dry_mass, ~ age_class * calluna_NiN_type))
 pairs(emmeans_lme4_dry_mass, simple="each", adjust = "tukey") #Tukey adjustment to prevent false positives
-cld(emmeans_lme4_dry_mass, Letters=letters)
+cld(emmeans_lme4_dry_mass, Letters=letters) #Testing cld, but have later decided to omit these results from the analysis as they don't show all the significant effects from the pairwise emmeans post hoc
 ```
 
 ```{r}
@@ -1887,6 +1918,7 @@ ggplot() +
 
 
 ```
+
 ```{r}
 #| label: PCA-plot-coloured-by-age-class
 
@@ -1931,6 +1963,10 @@ loadings <- loadings %>%
     label_x = PC1 * 1.08,
     label_y = PC2 * 1.2
   )
+
+#Add interaction titles to scores dataframe
+scores$group <- interaction(scores$age_class,
+                            scores$calluna_NiN_type, sep = " × ")
 
 pca_age_color <- ggplot(
   scores,
@@ -2006,8 +2042,8 @@ coord_equal() +
 
 labs(
   title = "PCA - Plant Traits",
-  x = paste0("PC1 (", round(summary(pca_prcomp)$importance[2,1]*100,1),"%)"),
-  y = paste0("PC2 (", round(summary(pca_prcomp)$importance[2,2]*100,1),"%)"),
+  x = paste0("PC1 (", pc1_percent, "%)"),
+  y = paste0("PC2 (", pc2_percent, "%)"),
   colour = "Age class",
   shape = "NiN type"
 ) +
@@ -2036,7 +2072,8 @@ theme(
   legend.text = element_text(size = 12),
 
   legend.position = "right"
-)
+) +
+  facet_wrap(~calluna_NiN_type)
 
 pca_age_color
 
@@ -2050,7 +2087,6 @@ ggsave(
 )
 
 ```
-
 
 ```{r}
 #| label: PCA-plot-coloured-by-NiN-type
@@ -2079,21 +2115,22 @@ geom_hline(yintercept = 0,
 
 geom_vline(xintercept = 0,
            colour = "grey80",
-           linetype = 2) +
-
-stat_ellipse(
-  aes(group = calluna_NiN_type,
-      colour = calluna_NiN_type),
-  level = 0.68,
-  linewidth = 0.7,
-  show.legend = FALSE,
-  alpha = 0.5
+           linetype = 2
 ) +
 
-geom_point(
-  size = 2.2,
-  alpha = 0.65
-) +
+  stat_ellipse(
+    aes(group = calluna_NiN_type,
+        colour = calluna_NiN_type),
+    level = 0.68,
+    linewidth = 0.7,
+    show.legend = FALSE,
+    alpha = 0.5
+  ) +
+  
+  geom_point(
+    size = 2.2,
+    alpha = 0.65
+  ) +
 
 geom_segment(
   data = loadings,
@@ -2137,8 +2174,8 @@ coord_equal() +
 
 labs(
   title = "PCA - Plant Traits",
-  x = paste0("PC1 (", round(summary(pca_prcomp)$importance[2,1]*100,1),"%)"),
-  y = paste0("PC2 (", round(summary(pca_prcomp)$importance[2,2]*100,1),"%)"),
+  x = paste0("PC1 (", pc1_percent, "%)"),
+  y = paste0("PC2 (", pc2_percent, "%)"),
   colour = "NiN type",
   shape = "Age class"
 ) +
@@ -2167,7 +2204,7 @@ theme(
   legend.text = element_text(size = 12),
 
   legend.position = "right"
-)
+) + facet_wrap(~age_class)
 
 pca_NiN_color
 
@@ -2181,8 +2218,6 @@ ggsave(
 )
 
 ```
-
-
 
 ```{r}
 #| label: betadisper-anova-permutest-TukeyHSD
@@ -2213,8 +2248,8 @@ a# Boxplot from betadisper object
 plot(bd_age, kind = "boxplot", xlab = "Age class", ylab = "Distance to centroid")
 
 #Result meets assumption of homogeneity, but shows no significant difference in the multivariate dispersion in functional trait composition across age class. Hypothesis disproved: trait variance does not significantly decrease with age. If PERMANOVA is run, ssumptions of homogenous dispersions are met
-```
 
+```
 
 ```{r}
 #| label: PERMANOVA-test-pairwiseAdonis
@@ -2271,7 +2306,8 @@ all(rownames(cleaned_data) == rownames(dist_mat))
 
 ```
 
-Got feedback that PERMANOVA and pairwise adonis might not be the best test to evaluate statistical differences in centroid means, therefore an RDA with ANOVA is carried out. For now, i've done the rda on the interaction between age class and NiN type to answer the research question , but could probably perform separate ones as well, as i've done with the PCA plots. The pca analysis does not include the interaction term, but the RDA does, so it is probably a more accurate analysis. 
+Got feedback that PERMANOVA and pairwise adonis might not be the best test to evaluate statistical differences in centroid means, therefore an RDA with ANOVA is carried out. For now, i've done the rda on the interaction between age class and NiN type to answer the research question , but could probably perform separate ones as well, as i've done with the PCA plots. The pca analysis does not include the interaction term, but the RDA does, so it is probably a more accurate analysis.
+
 ```{r}
 #| label: RDA-analysis-anova-posthoc
 
@@ -2295,17 +2331,13 @@ sqrt(vif.cca(rda))
 
 
 ```
+
 ```{r}
 #| label: Plot-RDA-results
 
 
 
 ```
-
-
-
-
-
 
 There is quite a big overlap of NiN types, showing they have less of a distinct effect on the traits and age class slightly stringer effect, especially seen with FH pioneer Calluna
 
@@ -2696,8 +2728,6 @@ geom_pointrange(data=cld_wet_mass,
 #| label: Raincloud plot with half violins, jittered points and EMMs wet mass
 
 
-library(ggdist)
-
 
 ggplot(cleaned_data,
        aes(x = age_class,
@@ -2779,7 +2809,7 @@ Best visuals so far, easy overview, less noise
 ```{r}
 #| label: Without violins and boxplots wet mass
 
-
+#Removed cld letter display
 
 results_ggp_wet_mass <- ggplot(cleaned_data, aes(x = calluna_NiN_type, y = wet_mass, color = calluna_NiN_type)) +
   geom_quasirandom(dodge.width = 1, 
@@ -2792,15 +2822,15 @@ results_ggp_wet_mass <- ggplot(cleaned_data, aes(x = calluna_NiN_type, y = wet_m
                   size=0.8,
                   fatten=2,
                   position=position_dodge(width=1))+
-  geom_text(
-    data = cld_wet_mass,
-    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
-    position = position_dodge(width = 1),   # Aligns letters with the pointranges
-    vjust = -0.5,                             # Nudges letters slightly upward
-    color = "black",
-    fontface= "bold",
-    show.legend = FALSE
-  )+
+#  geom_text(
+ #   data = cld_wet_mass,
+  #  aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+   # position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    #vjust = -0.5,                             # Nudges letters slightly upward
+    #color = "black",
+    #fontface= "bold",
+    #show.legend = FALSE
+ # )+
   scale_fill_manual(values = NIN) +
   scale_color_manual(values = NIN) +
   labs(x=NULL, y="Wet mass (g)", title="Leaf wet mass (g) of" ~ italic("Calluna vulgaris") ~ "across age class and NiN types", color="NiN type")+
@@ -3399,15 +3429,15 @@ results_ggp_height <- ggplot(cleaned_data, aes(x = calluna_NiN_type, y = height_
                   size=0.8,
                   fatten=2,
                   position=position_dodge(width=1))+
-  geom_text(
-    data = cld_height,
-    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
-    position = position_dodge(width = 1),   # Aligns letters with the pointranges
-    vjust = -0.5,                             # Nudges letters slightly upward
-    color = "black",
-    fontface= "bold",
-    show.legend = FALSE
-  )+
+  #geom_text(
+   # data = cld_height,
+    #aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+    #position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    #vjust = -0.5,                             # Nudges letters slightly upward
+    #color = "black",
+    #fontface= "bold",
+    #show.legend = FALSE
+ # )+
   scale_fill_manual(values = NIN) +
   scale_color_manual(values = NIN) +
   labs(x = NULL, y="Vegetative height (cm)", title="Vegetative height (cm) of" ~ italic("Calluna vulgaris") ~ "across age class and NiN types", color="NiN type")+
@@ -3630,15 +3660,15 @@ results_ggp_dry_mass <- ggplot(cleaned_data, aes(x = calluna_NiN_type, y = dry_m
                   size=0.8,
                   fatten=2,
                   position=position_dodge(width=1))+
-  geom_text(
-    data = cld_dry_mass,
-    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
-    position = position_dodge(width = 1),   # Aligns letters with the pointranges
-    vjust = -0.5,                             # Nudges letters slightly upward
-    color = "black",
-    fontface= "bold",
-    show.legend = FALSE
-  )+
+ # geom_text(
+  #  data = cld_dry_mass,
+   # aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+    #position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    #vjust = -0.5,                             # Nudges letters slightly upward
+    #color = "black",
+    #fontface= "bold",
+    #show.legend = FALSE
+ # )+
   scale_fill_manual(values = NIN) +
   scale_color_manual(values = NIN) +
   labs(x=NULL, y="Dry mass (g)", title="Leaf dry mass (g) of" ~ italic("Calluna vulgaris") ~ "across age class and NiN types", color="NiN type")+
@@ -3797,8 +3827,6 @@ ggplot(contrasts_leaf_area_df,
   )
 ```
 
-
-
 ```{r}
 #| label: Without violins and boxplots leaf area
 
@@ -3827,15 +3855,15 @@ results_ggp_leaf_area <- ggplot(cleaned_data, aes(x = calluna_NiN_type, y = leaf
                   size=0.8,
                   fatten=2,
                   position=position_dodge(width=1))+
-  geom_text(
-    data = cld_leaf_area,
-    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
-    position = position_dodge(width = 1),   # Aligns letters with the pointranges
-    vjust = -0.5,                             # Nudges letters slightly upward
-    color = "black",
-    fontface= "bold",
-    show.legend = FALSE
-  )+
+ # geom_text(
+  #  data = cld_leaf_area,
+   # aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+    #position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    #vjust = -0.5,                             # Nudges letters slightly upward
+    #color = "black",
+    #fontface= "bold",
+    #show.legend = FALSE
+ # )+
   scale_fill_manual(values = NIN) +
   scale_color_manual(values = NIN) +
   labs(x= NULL, y = expression(Leaf ~ area ~ (cm^2)), color = "NiN type", title=expression("Leaf area" ~ (cm^2) ~ "of" ~ italic("C. vulgaris") ~ "across age class and NiN type"))+
@@ -4039,7 +4067,7 @@ This is in the report:
 
 ```{r}
 #| label: Without violins and boxplots leaf thickness
-
+#Removed cld from plot
 
 
 results_ggp_leaf_thickness <- ggplot(cleaned_data, aes(x = calluna_NiN_type, y = leaf_thickness_mean, color = calluna_NiN_type)) +
@@ -4053,15 +4081,15 @@ results_ggp_leaf_thickness <- ggplot(cleaned_data, aes(x = calluna_NiN_type, y =
                   size=0.8,
                   fatten=2,
                   position=position_dodge(width=1))+
-  geom_text(
-    data = cld_leaf_thickness,
-    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
-    position = position_dodge(width = 1),   # Aligns letters with the pointranges
-    vjust = -0.5,                             # Nudges letters slightly upward
-    color = "black",
-    fontface= "bold",
-    show.legend = FALSE
-  )+
+#  geom_text(
+ #   data = cld_leaf_thickness,
+  #  aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+   # position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    #vjust = -0.5,                             # Nudges letters slightly upward
+    #color = "black",
+    #fontface= "bold",
+    #show.legend = FALSE
+  #)+
   scale_fill_manual(values = NIN) +
   scale_color_manual(values = NIN) +
   labs(x = NULL, y = "Leaf thickness (mm)", color = "NiN type", title = "Mean leaf thickness (mm) of" ~ italic("Calluna vulgaris") ~ "across age class and NiN type")+
@@ -4274,15 +4302,15 @@ results_ggp_SLA <- ggplot(cleaned_data, aes(x = calluna_NiN_type, y = SLA, color
                   size=0.8,
                   fatten=2,
                   position=position_dodge(width=1))+
-  geom_text(
-    data = cld_SLA,
-    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
-    position = position_dodge(width = 1),   # Aligns letters with the pointranges
-    vjust = -0.5,                             # Nudges letters slightly upward
-    color = "black",
-    fontface= "bold",
-    show.legend = FALSE
-  )+
+#  geom_text(
+ #   data = cld_SLA,
+  #  aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+   # position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    #vjust = -0.5,                             # Nudges letters slightly upward
+    #color = "black",
+    #fontface= "bold",
+    #show.legend = FALSE
+ # )+
   scale_fill_manual(values = NIN) +
   scale_color_manual(values = NIN) +
   labs(x = NULL, y = expression(SLA ~ (cm^2 ~ g^-1)), color = "NiN type", title = expression("Specific leaf area" ~ (cm^2 ~ g^-1) ~ "of" ~ italic("Calluna vulgaris") ~ "across age class and NiN type"))+
@@ -4493,15 +4521,15 @@ results_ggp_LDMC <- ggplot(cleaned_data, aes(x = calluna_NiN_type, y = LDMC, col
                   size=0.8,
                   fatten=2,
                   position=position_dodge(width=1))+
-  geom_text(
-    data = cld_LDMC,
-    aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
-    position = position_dodge(width = 1),   # Aligns letters with the pointranges
-    vjust = -0.5,                             # Nudges letters slightly upward
-    color = "black",
-    fontface= "bold",
-    show.legend = FALSE
-  )+
+#  geom_text(
+ #   data = cld_LDMC,
+  #  aes(y = label_y, label = trimws(.group), group = calluna_NiN_type),       
+   # position = position_dodge(width = 1),   # Aligns letters with the pointranges
+    #vjust = -0.5,                             # Nudges letters slightly upward
+    #color = "black",
+    #fontface= "bold",
+    #show.legend = FALSE
+ # )+
   scale_fill_manual(values = NIN) +
   scale_color_manual(values = NIN) +
   labs(x = NULL, y = expression(LDMC ~ (g ~ g^-1)), color = "NiN type", title = expression("Leaf dry matter content" ~ (g ~ g^-1) ~ "of" ~ italic("Calluna vulgaris") ~ "across age class and NiN type"))+
