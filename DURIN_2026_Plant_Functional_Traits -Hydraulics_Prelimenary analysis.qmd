@@ -1943,9 +1943,9 @@ loadings <- loadings %>%
 
 
 new_labels <- c(
-  height_cm = "Vegetative height",
-  leaf_area = "Leaf area",
-  leaf_thickness_mean = "Leaf thickness",
+  height_cm = "Height",
+  leaf_area = "Area",
+  leaf_thickness_mean = "Thickness",
   SLA = "SLA",
   LDMC = "LDMC"
 )
@@ -2095,8 +2095,8 @@ ggsave(
 #Offset arrow labels
 loadings <- loadings %>%
   mutate(
-    label_x2 = PC1 * 1.08,
-    label_y2 = PC2 * 1.05
+    label_x2 = PC1 * 1.09,
+    label_y2 = PC2 * 1.085
   )
 
 pca_NiN_color <- ggplot(
@@ -2105,7 +2105,7 @@ pca_NiN_color <- ggplot(
     PC1,
     PC2,
     colour = calluna_NiN_type,
-    shape = age_class
+    fill = calluna_NiN_type
   )
 ) +
 
@@ -2119,17 +2119,15 @@ geom_vline(xintercept = 0,
 ) +
 
   stat_ellipse(
-    aes(group = calluna_NiN_type,
-        colour = calluna_NiN_type),
-    level = 0.68,
-    linewidth = 0.7,
-    show.legend = FALSE,
-    alpha = 0.5
+    geom = "polygon",
+    alpha = 0.2,
+    level = 0.95,
+    colour = NA
   ) +
   
   geom_point(
     size = 2.2,
-    alpha = 0.65
+    alpha = 0.5
   ) +
 
 geom_segment(
@@ -2156,19 +2154,14 @@ geom_text_repel(
   inherit.aes = FALSE,
   colour = "grey20",
   size = 4,
-  point.padding = 0.3,
-  box.padding = 0.5,
+  point.padding = 0.5,
+  box.padding = 0.35,
   max.overlaps = Inf, 
-  segment.color = "grey80"
+  segment.color = NA
 ) +
 
 scale_colour_manual(values = NIN) +
-
-scale_shape_manual(values = c(
-  Pioneer = 16,
-  Building = 17,
-  Mature = 15
-)) +
+  scale_fill_manual(values = NIN) +
 
 coord_equal() +
 
@@ -2204,16 +2197,21 @@ theme(
   legend.text = element_text(size = 12),
 
   legend.position = "right"
-) + facet_wrap(~age_class)
+) +
+  guides(fill = "none") +
+  facet_wrap(~age_class)
 
 pca_NiN_color
 
 #Saving output
 
+pca_NiN_color <- pca_NiN_color +
+  theme(plot.title = element_blank())
+
 ggsave(
  "pca_NiN_color.png",
- width=10,
- height=8,
+ width=16,
+ height=12,
  dpi=300
 )
 
@@ -2244,7 +2242,7 @@ anova(bd_age)
 permutest(bd_age, pairwise = TRUE, permutations = 999) #Give unadjusted p-values
 TukeyHSD(bd_age) #Adjusts for multiple comparisons
 
-a# Boxplot from betadisper object
+# Boxplot from betadisper object
 plot(bd_age, kind = "boxplot", xlab = "Age class", ylab = "Distance to centroid")
 
 #Result meets assumption of homogeneity, but shows no significant difference in the multivariate dispersion in functional trait composition across age class. Hypothesis disproved: trait variance does not significantly decrease with age. If PERMANOVA is run, ssumptions of homogenous dispersions are met
@@ -2309,7 +2307,7 @@ all(rownames(cleaned_data) == rownames(dist_mat))
 Got feedback that PERMANOVA and pairwise adonis might not be the best test to evaluate statistical differences in centroid means, therefore an RDA with ANOVA is carried out. For now, i've done the rda on the interaction between age class and NiN type to answer the research question , but could probably perform separate ones as well, as i've done with the PCA plots. The pca analysis does not include the interaction term, but the RDA does, so it is probably a more accurate analysis.
 
 ```{r}
-#| label: RDA-analysis-anova-posthoc
+#| label: RDA-analysis-anova
 
 
 rda <- rda(traits_compiled ~ calluna_NiN_type * age_class, data = traits_NiN_age)
@@ -2328,12 +2326,299 @@ anova(rda, by = "terms") #significance by age class and Nin
 #Look at multicollinearity, >2 is considered high, variables are fine
 sqrt(vif.cca(rda))
 
+#Extract RDA scores
+
+# Site scores
+sites_rda <- as.data.frame(scores(rda, display = "sites"))
+sites_rda$age_class <- traits_NiN_age$age_class
+sites_rda$calluna_NiN_type <- traits_NiN_age$calluna_NiN_type
+
+# Species scores
+scores_rda <- cbind(
+  traits_NiN_age,
+  RDA1 = sites_rda[, "RDA1"],
+  RDA2 = sites_rda[, "RDA2"]
+)
+
+# Trait loadings (variable vectors)
+loadings_rda <- as.data.frame(
+  scores(
+    rda,
+    display = "species",
+    choices = 1:2,
+    scaling = 0
+  )
+)
+
+loadings_rda$Variable <- rownames(loadings_rda)
+
+#Naming variable rows
+new_labels <- c(
+  "Vegetative height" = "Height",
+  "Leaf area" = "Area",
+  "Leaf thickness" = "Thickness",
+  SLA = "SLA",
+  LDMC = "LDMC"
+)
+
+loadings_rda$Variable <- ifelse(
+  loadings_rda$Variable %in% names(new_labels),
+  new_labels[loadings_rda$Variable],
+  loadings_rda$Variable
+)
+
+loadings_rda
+
+# Environmental arrows
+env_arrows <- as.data.frame(scores(rda, display = "bp"))
+env_arrows$variable <- rownames(env_arrows)
+
+#Percent variance explained
+eig <- eigenvals(rda)
+
+pc1_rda <- round(100 * eig[1] / sum(eig), 2)
+pc2_rda <- round(100 * eig[2] / sum(eig), 2)
+
+
+#Offset arrow labels
+loadings_rda <- loadings_rda %>%
+  mutate(
+    label_x3 = RDA1 * 1.25,
+    label_y3 = RDA2 * 1.25)
+```
+
+```{r}
+#| label: plot-rda-facet-by-age
+
+
+
+ rda_plot <- ggplot(sites_rda, aes(RDA1, RDA2, colour = calluna_NiN_type, fill = calluna_NiN_type)) +
+  
+  geom_point(size = 1.5, alpha = 0.85) +
+  
+  stat_ellipse(
+    geom = "polygon",
+    alpha = 0.2,
+    level = 0.95,
+    colour = NA
+  ) +
+  
+  geom_segment(
+    data = loadings_rda,
+    aes(x = 0, y = 0,
+        xend = RDA1*2,
+        yend = RDA2*2),
+    linewidth = 0.7,
+    colour = "grey20",
+    inherit.aes = FALSE,
+    arrow = arrow(length = unit(0.25, "cm")
+   )
+  ) +
+  geom_text_repel(
+    data = loadings_rda,
+    aes(
+      x = label_x3,
+      y = label_y3,
+      label = Variable
+    ),
+    force = 12,
+    inherit.aes = FALSE,
+    colour = "grey20",
+    size = 4,
+    point.padding = 0.3,
+    box.padding = 4,
+    max.overlaps = Inf, 
+    segment.color = "grey40",
+    segment.size = 0.4,
+    min.segment.length = 0
+  ) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  theme_classic(base_size = 18) +
+  theme(
+    strip.background = element_rect(fill = "grey95"),
+    legend.position = "right",
+    strip.text = element_text(face = "plain")
+  ) +
+    coord_equal() +
+  geom_hline(yintercept = 0,
+             linetype = 2,
+             colour = "grey70") +
+
+geom_vline(xintercept = 0,
+           linetype = 2,
+           colour = "grey70") +
+    labs(
+      title = "RDA - Plant Traits",
+      x = paste0("RDA1 (", pc1_rda, "%)"),
+      y = paste0("RDA2 (", pc2_rda, "%)"),
+      colour = "NiN type"
+    ) +
+  guides(fill = "none") +
+  facet_wrap(~age_class)
+  
+  rda_plot
+
+#Remember to mention arrows are offset by 2 * multiplication for aesthetics!
+
+#Saving output
+
+ggsave(
+  "rda_plot.png",
+  width=12,
+  height=10,
+  dpi=300
+)
+
+```
+
+```{r}
+#| label: plot-rda-facet-by-age-ellipselines
+
+
+ggplot(sites_rda, aes(RDA1, RDA2, colour = calluna_NiN_type, fill = calluna_NiN_type)) +
+  
+  geom_point(size = 1.5, alpha = 0.85) +
+  
+  stat_ellipse(
+    aes(group = calluna_NiN_type,
+        colour = calluna_NiN_type),
+    alpha = 0.5,
+    level = 0.95,
+    linewidth = 0.7
+  ) +
+  
+  geom_segment(
+    data = loadings_rda,
+    aes(x = 0, y = 0,
+        xend = RDA1*1.5,
+        yend = RDA2*1.5),
+    linewidth = 0.7,
+    colour = "grey20",
+    inherit.aes = FALSE,
+    arrow = arrow(length = unit(0.25, "cm")
+    )
+  ) +
+  geom_text_repel(
+    data = loadings_rda,
+    aes(
+      x = label_x3,
+      y = label_y3,
+      label = Variable
+    ),
+    force = 12,
+    inherit.aes = FALSE,
+    colour = "grey20",
+    size = 4,
+    point.padding = 0.3,
+    box.padding = 4,
+    max.overlaps = Inf, 
+    segment.color = "grey40",
+    segment.size = 0.4,
+    min.segment.length = 0
+  ) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  theme_classic(base_size = 18) +
+  theme(
+    strip.background = element_rect(fill = "grey95"),
+    legend.position = "right",
+    strip.text = element_text(face = "plain")
+  ) +
+  coord_equal() +
+  geom_hline(yintercept = 0,
+             linetype = 2,
+             colour = "grey70") +
+  
+  geom_vline(xintercept = 0,
+             linetype = 2,
+             colour = "grey70") +
+  labs(
+    title = "RDA - Plant Traits",
+    x = paste0("RDA1 (", pc1_rda, "%)"),
+    y = paste0("RDA2 (", pc2_rda, "%)"),
+    colour = "NiN type"
+  ) +
+  guides(fill = "none") +
+  facet_wrap(~age_class)
+
 
 
 ```
 
 ```{r}
-#| label: Plot-RDA-results
+#| label: plot-rda-facet-by-age-and-NiN
+
+#Interaction column
+sites_rda$facet_group <- interaction(
+  sites_rda$calluna_NiN_type,
+  sites_rda$age_class
+)
+
+ggplot(sites_rda, aes(RDA1, RDA2, colour = calluna_NiN_type, fill = calluna_NiN_type)) +
+  
+  geom_point(size = 1.5, alpha = 0.85) +
+  
+  stat_ellipse(
+    geom = "polygon",
+    alpha = 0.2,
+    level = 0.95,
+    colour = NA
+  ) +
+  
+  geom_segment(
+    data = loadings_rda,
+    aes(x = 0, y = 0,
+        xend = RDA1*2,
+        yend = RDA2*2),
+    linewidth = 0.7,
+    colour = "grey20",
+    inherit.aes = FALSE,
+    arrow = arrow(length = unit(0.25, "cm")
+    )
+  ) +
+  geom_text_repel(
+    data = loadings_rda,
+    aes(
+      x = label_x3,
+      y = label_y3,
+      label = Variable
+    ),
+    force = 12,
+    inherit.aes = FALSE,
+    colour = "grey20",
+    size = 4,
+    point.padding = 0.3,
+    box.padding = 4,
+    max.overlaps = Inf, 
+    segment.color = "grey40",
+    segment.size = 0.4,
+    min.segment.length = 0
+  ) +
+  scale_color_manual(values = NIN) +
+  scale_fill_manual(values = NIN) +
+  theme_classic(base_size = 18) +
+  theme(
+    strip.background = element_rect(fill = "grey95"),
+    legend.position = "right",
+    strip.text = element_text(face = "plain")
+  ) +
+  coord_equal() +
+  geom_hline(yintercept = 0,
+             linetype = 2,
+             colour = "grey70") +
+  
+  geom_vline(xintercept = 0,
+             linetype = 2,
+             colour = "grey70") +
+  labs(
+    title = "RDA - Plant Traits",
+    x = paste0("RDA1 (", pc1_rda, "%)"),
+    y = paste0("RDA2 (", pc2_rda, "%)"),
+    colour = "NiN type"
+  ) +
+  guides(fill = "none") +
+  facet_wrap(~facet_group)
 
 
 
