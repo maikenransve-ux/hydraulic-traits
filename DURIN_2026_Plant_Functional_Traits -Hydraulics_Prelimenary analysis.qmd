@@ -642,28 +642,28 @@ ggplot(cleaned_data, aes(x = leaf_area, y=calluna_NiN_type, fill=calluna_NiN_typ
 #| label: Data frame + histogram LDMC
 
 
-#Add mean for each age class
-mean_age <- cleaned_data %>%
+#Add mean for each age class -used in the results section
+mean_LDMC_age <- cleaned_data %>%
   group_by(age_class) %>%
   summarise(mean_LDMC_age = mean(LDMC, na.rm = TRUE),
             .groups = "drop")
 
 #Add se for age class
-se_age <- cleaned_data %>%
+se_LDMC_age <- cleaned_data %>%
   group_by(age_class) %>%
   summarise(se_LDMC_age = sd(LDMC, na.rm = TRUE)/sqrt(n()), n = n(),
             .groups = "drop")
 
 #Add mean for each NiN type
-mean_NiN <- cleaned_data %>%
+mean_LDMC_NiN <- cleaned_data %>%
   group_by(calluna_NiN_type) %>%
   summarise(mean_LDMC_NiN = mean(LDMC, na.rm = TRUE),
             .groups = "drop")
 
 #Add se for NiN type
-se_NiN <- cleaned_data %>%
+se_LDMC_NiN <- cleaned_data %>%
   group_by(calluna_NiN_type) %>%
-  summarise(se_LDMC_Nin = sd(LDMC, na.rm = TRUE)/sqrt(n()), n = n(),
+  summarise(se_LDMC_NiN = sd(LDMC, na.rm = TRUE)/sqrt(n()), n = n(),
             .groups = "drop")
 
 
@@ -778,6 +778,31 @@ ggplot(cleaned_data, aes(x = LDMC, y=calluna_NiN_type, fill=calluna_NiN_type)) +
 
 ```{r}
 #| label: Data frame + histogram SLA
+
+#Add mean for each age class
+mean_SLA_age <- cleaned_data %>%
+  group_by(age_class) %>%
+  summarise(mean_SLA_age = mean(SLA, na.rm = TRUE),
+            .groups = "drop")
+
+#Add se for age class
+se_SLA_age <- cleaned_data %>%
+  group_by(age_class) %>%
+  summarise(se_SLA_age = sd(SLA, na.rm = TRUE)/sqrt(n()), n = n(),
+            .groups = "drop")
+
+#Add mean for each NiN type
+mean_SLA_NiN <- cleaned_data %>%
+  group_by(calluna_NiN_type) %>%
+  summarise(mean_SLA_NiN = mean(SLA, na.rm = TRUE),
+            .groups = "drop")
+
+#Add se for NiN type
+se_SLA_NiN <- cleaned_data %>%
+  group_by(calluna_NiN_type) %>%
+  summarise(se_SLA_NiN = sd(SLA, na.rm = TRUE)/sqrt(n()), n = n(),
+            .groups = "drop")
+
 
 
 df_sum_SLA <- cleaned_data %>%
