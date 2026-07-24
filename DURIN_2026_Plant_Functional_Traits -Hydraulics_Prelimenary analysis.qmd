@@ -673,10 +673,10 @@ df_sum_LDMC <- cleaned_data %>%
   summarise(mean_LDMC = mean(LDMC, na.rm=TRUE),
             se_LDMC = sd(LDMC, na.rm=TRUE)/sqrt(n()),
             n = n(), .groups = "drop")  %>%
-  left_join(mean_age, by = "age_class") %>%
-  left_join(mean_NiN, by = "calluna_NiN_type") %>%
-  left_join(se_age, by = "age_class") %>%
-  left_join(se_NiN, by = "calluna_NiN_type")
+  left_join(mean_LDMC_age, by = "age_class") %>%
+  left_join(mean_LDMC_NiN, by = "calluna_NiN_type") %>%
+  left_join(se_LDMC_age, by = "age_class") %>%
+  left_join(se_LDMC_NiN, by = "calluna_NiN_type")
 
 
 
@@ -1805,9 +1805,11 @@ colnames(traits_NiN_age) <- c(
   "calluna_NiN_type"
 )
 
+#Omit NA values
+
+na.omit(traits_NiN_age[, c("calluna_NiN_type", "age_class")])
 
 
-traits_NiN_age <- na.omit(traits_NiN_age)
 ```
 
 ```{r}
@@ -2250,6 +2252,8 @@ ggsave(
 
 dist_mat <- dist(scale(traits_compiled))
 
+show(dist_mat)
+
 bd_NiN <- betadisper(dist_mat, traits_NiN_age$calluna_NiN_type) 
 
 anova(bd_NiN)
@@ -2272,6 +2276,92 @@ plot(bd_age, kind = "boxplot", xlab = "Age class", ylab = "Distance to centroid"
 
 #Result meets assumption of homogeneity, but shows no significant difference in the multivariate dispersion in functional trait composition across age class. Hypothesis disproved: trait variance does not significantly decrease with age. If PERMANOVA is run, ssumptions of homogenous dispersions are met
 
+#Testing interaction, creating a merged interaction factor allows to test whether the multivariate spread of plant traits shifts across different age stages within or across NiN types
+
+
+# 1. Create a combined interaction factor
+traits_NiN_age$interaction_group <- interaction(
+  traits_NiN_age$calluna_NiN_type, 
+  traits_NiN_age$age_class, 
+  sep = "_"
+)
+
+# 2. Run the betadisper model on the interaction
+bd_interaction <- betadisper(dist_mat, traits_NiN_age$interaction_group)
+
+# 3. Global significance tests
+anova(bd_interaction)
+permutest(bd_interaction, pairwise = TRUE, permutations = 999)
+
+# 4. Post-hoc comparisons (highly recommended for interactions)
+tukey_interaction <- TukeyHSD(bd_interaction)
+print(tukey_interaction)
+
+# Plot ordered by the combined groups
+plot_bd_interaction <- plot(bd_interaction, kind = "boxplot", 
+     xlab = "NiN Type × Age Class", 
+     ylab = "Distance to centroid",
+     las = 2) # Rotates x-axis labels for readability
+
+#Boxplot with base r
+
+Boxplot_bd_interaction <- boxplot(
+  bd_interaction,
+  xlab = "NiN Type × Age Class",
+  ylab = "Distance to centroid",
+  col = "grey85",
+  border = "grey30",
+  las = 2,
+  cex.axis = 0.85,
+  cex.lab = 1.1,
+  lwd = 1.2,
+  outline = TRUE,
+  frame = FALSE
+) 
+
+Boxplot_bd_interaction
+
+
+
+#Boxplot with ggplot and significance
+
+library(ggsignif)
+
+bd_interaction_data <- data.frame(
+  distance = bd_interaction$distances,
+  calluna_NiN_type = traits_NiN_age$calluna_NiN_type,
+  age_class = traits_NiN_age$age_class
+)
+
+
+
+
+ggplot(bd_interaction_data, aes(x = age_class, y = distance)) +
+  geom_boxplot(
+    fill = "grey90",
+    colour = "grey30",
+    width = 0.7
+  ) +
+  geom_signif(
+    comparisons = list(
+      c("BH_Pioneer", "BH_Building", "BH_Mature"),
+      c("FH_Pioneer", "FH_Building", "FH_Mature"),
+      c("TH_Pioneer", "TH_Building", "TH_Mature")
+    ),
+    annotations = c("*", "**", "*"),
+    y_position = c(1.2, 1.3, 1.4),
+    tip_length = 0.01
+  ) +
+  facet_grid(~ calluna_NiN_type) +
+  labs(
+    x = "Age Class",
+    y = "Distance to centroid"
+  ) +
+  theme_classic() +
+  theme(
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold")
+  )
 ```
 
 ```{r}
