@@ -80,7 +80,7 @@ AGE <- c("Pioneer" = "#087E8B","Building" = "#EB5461", "Mature" = "#884000")
 
 ```
 
-# Wet mass(g) 
+# Wet mass(g)
 
 ```{r}
 #| label: Data-frame-with-mean-median-and-se-histogram-wet-mass
@@ -151,7 +151,7 @@ ggplot(cleaned_data, aes(x = wet_mass, y =calluna_NiN_type, fill=calluna_NiN_typ
 
 ```
 
-# Dry mass(g) 
+# Dry mass(g)
 
 @fig-Data-frame-histogram-dry-mass shows slight right skewedness of data\
 
@@ -219,7 +219,7 @@ ggplot(cleaned_data, aes(x = dry_mass, y = calluna_NiN_type, fill=calluna_NiN_ty
 
 # Height (cm)
 
--@Data-frame-histogram-height does not appear normally distributed, histogram looks bimodal, but might be too few datapoints
+[-@Data-frame-histogram-height] does not appear normally distributed, histogram looks bimodal, but might be too few datapoints
 
 ```{r}
 #| label: Data-frame-histogram-height
@@ -295,9 +295,9 @@ ggplot(cleaned_data, aes(x = height_cm, y=calluna_NiN_type, fill=calluna_NiN_typ
 
 ```
 
-# Leaf thickness (mm) 
+# Leaf thickness (mm)
 
--@fig-dataframe-histogram-leaf-thickness appears normally distributed, a little right-skewed
+[-@fig-dataframe-histogram-leaf-thickness] appears normally distributed, a little right-skewed
 
 ```{r}
 #| label: fig-dataframe-histogram-leaf-thickness
@@ -379,7 +379,7 @@ ggplot(data_thickness, aes(x = leaf_thickness, y=calluna_NiN_type, fill=calluna_
 
 # Leaf area (cm^2^) visualizations
 
--@Data-frame-histogram-leaf-area appears right-skewed, but normally distributed
+[-@Data-frame-histogram-leaf-area] appears right-skewed, but normally distributed
 
 ```{r}
 #| label: Data-frame-histogram-leaf-area
@@ -447,7 +447,7 @@ ggplot(cleaned_data, aes(x = leaf_area, y=calluna_NiN_type, fill=calluna_NiN_typ
 
 # Leaf Dry Matter Content
 
--@fig-Data-frame-histogram-LDMC appears normally distributed, but left-skewed
+[-@fig-Data-frame-histogram-LDMC] appears normally distributed, but left-skewed
 
 ```{r}
 #| label: fig-Data-frame-histogram-LDMC
@@ -932,6 +932,15 @@ anova(lme4_LDMC)
 
 (emmeans_lme4_LDMC<- emmeans(lme4_LDMC, ~ age_class * calluna_NiN_type))
 pairs(emmeans_lme4_LDMC, simple="each", adjust="tukey") #Tukey adjustment to prevent false positives
+
+#marginal means for age and NiN class individually
+
+emmeans_lme4_LDMC_age <- emmeans(lme4_LDMC, ~ age_class)
+emmeans_lme4_LDMC_NiN <- emmeans(lme4_LDMC, ~ calluna_NiN_type)
+
+pairs(emmeans_lme4_LDMC_age, adjust = "tukey")
+pairs(emmeans_lme4_LDMC_NiN, adjust = "tukey")
+
 
 #Plots to visualize emmeans output
 emmip(emmeans_lme4_LDMC, calluna_NiN_type ~ age_class, CIs=TRUE) #If confidence intervals are largely overlapping it is more likely the groups are not siginficantly different
