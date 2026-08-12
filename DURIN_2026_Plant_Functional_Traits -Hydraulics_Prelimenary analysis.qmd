@@ -956,6 +956,15 @@ anova(lme4_SLA)
 
 (emmeans_lme4_SLA<- emmeans(lme4_SLA, ~ age_class * calluna_NiN_type))
 pairs(emmeans_lme4_SLA, simple="each", adjust="tukey") #Tukey adjustment to prevent false positives
+
+#marginal means for age and NiN class individually
+
+emmeans_lme4_SLA_age <- emmeans(lme4_SLA, ~ age_class)
+emmeans_lme4_SLA_NiN <- emmeans(lme4_SLA, ~ calluna_NiN_type)
+
+pairs(emmeans_lme4_SLA_age, adjust = "tukey")
+pairs(emmeans_lme4_SLA_NiN, adjust = "tukey")
+
 ```
 
 # Multivariate analysis and PCA
